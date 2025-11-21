@@ -1,1 +1,4 @@
 .venv_movenet/
+
+__pycache__/
+*.py[cod]
