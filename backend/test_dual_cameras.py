@@ -10,6 +10,8 @@ import time
 import threading
 from queue import Queue
 
+# ---- TODO: reescribir tu función draw_keypoints y detect_pose para dibujar correctamente sobre tus cámaras front y side. Leer último mensaje en ChatGPT ----
+
 # -----------------------
 # Configuración MoveNet
 # -----------------------
@@ -32,7 +34,7 @@ model = hub.load(MODEL_URL)
 movenet = model.signatures['serving_default']
 
 def detect_pose(frame):
-    img = tf.image.resize_with_pad(tf.expand_dims(frame, axis=0), INPUT_SIZE, INPUT_SIZE)
+    img = tf.image.resize(tf.expand_dims(frame, axis=0), (INPUT_SIZE, INPUT_SIZE))
     input_img = tf.cast(img, dtype=tf.int32)
     outputs = movenet(input_img)
     poses = outputs['output_0'].numpy()[0]
