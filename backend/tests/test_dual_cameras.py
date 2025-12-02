@@ -1,4 +1,4 @@
-# test_dual_cameras_multipose_threaded.py
+# test_dual_cameras.py
 from capture.camera_front import FrontCamera
 from capture.camera_side import SideCamera
 from utils.performance import PerformanceLogger
@@ -9,8 +9,6 @@ import numpy as np
 import time
 import threading
 from queue import Queue
-
-# ---- TODO: reescribir tu función draw_keypoints y detect_pose para dibujar correctamente sobre tus cámaras front y side. Leer último mensaje en ChatGPT ----
 
 # -----------------------
 # Configuración MoveNet

@@ -1,4 +1,5 @@
 .venv_movenet/
 
-__pycache__/
-*.py[cod]
+node_modules/
+.env
+*.log
