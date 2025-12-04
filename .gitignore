@@ -3,3 +3,7 @@
 node_modules/
 .env
 *.log
+
+# MoveNet TFLite model
+backend/models/movenet_multipose/
+backend/models/movenet_multipose/

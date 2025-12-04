@@ -1,2 +1,6 @@
 __pycache__/
 *.py[cod]
+
+# MoveNet TFLite model
+backend/models/movenet_multipose/*.tflite
+backend/models/movenet_multipose/*.tar.gz
