@@ -17,15 +17,26 @@ from queue import Queue
 # -----------------------
 # Configuración MoveNet
 # -----------------------
-MODEL_PATH = str(Path(__file__).resolve().parent.parent.joinpath("movenet_multipose.tflite"))
+MODEL_PATH = str(Path(__file__).resolve().parent.parent.joinpath("multipose-lightning.tflite"))
 if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError(f"MoveNet TFLite model not found at: {MODEL_PATH}")
 
 print("[INFO] Cargando MoveNet MultiPose (TFLite)...")
-interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
-interpreter.allocate_tensors()
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+interpreter_front = tf.lite.Interpreter(model_path=MODEL_PATH)
+interpreter_front.allocate_tensors()
+
+interpreter_front.resize_tensor_input(0, [1, 256, 256, 3])
+interpreter_front.allocate_tensors()
+
+interpreter_side = tf.lite.Interpreter(model_path=MODEL_PATH)
+interpreter_side.allocate_tensors()
+
+interpreter_side.resize_tensor_input(0, [1,256, 256, 3])
+interpreter_side.allocate_tensors()
+
+input_details  = interpreter_front.get_input_details()
+print("Input shape:", input_details[0]['shape'])
+output_details = interpreter_front.get_output_details()
 
 # Derive input size and dtype from TFLite model
 tflite_input_shape = input_details[0]['shape']  # [1, height, width, 3]
@@ -46,7 +57,7 @@ KEYPOINT_EDGES = {
 # -----------------------
 # Funciones de detección y dibujo
 # -----------------------
-def detect_pose(frame):
+def detect_pose(frame, interpreter, input_details, output_details):
     """Detect pose using TFLite interpreter.
     
     Args:
@@ -55,8 +66,10 @@ def detect_pose(frame):
     Returns:
         List of keypoints arrays, each shape (17, 3) for [y, x, confidence]
     """
+
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     # Resize to model input size
-    img_resized = cv2.resize(frame, (TFLITE_INPUT_W, TFLITE_INPUT_H))
+    img_resized = cv2.resize(rgb, (TFLITE_INPUT_W, TFLITE_INPUT_H))
 
     # Prepare input tensor with correct dtype
     if TFLITE_INPUT_DTYPE == np.uint8:
@@ -69,6 +82,10 @@ def detect_pose(frame):
     interpreter.set_tensor(input_details[0]['index'], input_tensor)
     interpreter.invoke()
     outputs = interpreter.get_tensor(output_details[0]['index'])  # [1, num_people, 56]
+    print("[DEBUG OUTPUT SHAPE]:", outputs.shape)
+    print("[DEBUG OUTPUT SAMPLE LEN]:", outputs.shape[-1])
+    print("[DEBUG OUTPUT FIRST ENTRY]:", outputs.flatten()[:10])
+
     outputs = np.copy(outputs)
 
     people = []
@@ -77,7 +94,7 @@ def detect_pose(frame):
         # First 51 elements are 17 keypoints * 3 (y, x, confidence)
         keypoints = person_raw[:51].reshape((17, 3))
         score = person_raw[55]
-        if score > 0.1:
+        if score > 0.01:
             people.append(keypoints)
     return people
 
@@ -125,15 +142,20 @@ def capture_thread(cam, frame_queue, name):
 # -----------------------
 # Hilos de inferencia
 # -----------------------
-def inference_thread(frame_queue, result_queue, name):
+def inference_thread(frame_queue, result_queue, name, interpreter):
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
     while True:
         if frame_queue.empty():
             time.sleep(0.001)
             continue
         frame = frame_queue.get()
+
+        print(f"[DEBUG] {name} frame shape:", frame.shape)
+        
         t0 = time.time()
         try:
-            people = detect_pose(frame)
+            people = detect_pose(frame, interpreter, input_details, output_details)
         except Exception as e:
             print(f"[ERROR] {name} inference: {e}")
             continue
@@ -151,8 +173,14 @@ def inference_thread(frame_queue, result_queue, name):
 # -----------------------
 threading.Thread(target=capture_thread, args=(cam_front, queue_front_frames, "front"), daemon=True).start()
 threading.Thread(target=capture_thread, args=(cam_side, queue_side_frames, "side"), daemon=True).start()
-threading.Thread(target=inference_thread, args=(queue_front_frames, queue_front_results, "front"), daemon=True).start()
-threading.Thread(target=inference_thread, args=(queue_side_frames, queue_side_results, "side"), daemon=True).start()
+threading.Thread(
+    target=inference_thread, 
+    args=(queue_front_frames, queue_front_results, "front", interpreter_front), 
+    daemon=True).start()
+threading.Thread(
+    target=inference_thread, 
+    args=(queue_side_frames, queue_side_results, "side", interpreter_side), 
+    daemon=True).start()
 
 # -----------------------
 # Loop principal: visualización
@@ -161,6 +189,9 @@ print("[INFO] Iniciando visualización de cámaras...")
 while True:
     if not queue_front_results.empty():
         frame_f, people_f, latency_f = queue_front_results.get()
+
+        print(f"[DEBUG FRONT] Personas detectadas: {len(people_f)}")
+
         for idx, kp in enumerate(people_f):
             draw_keypoints(frame_f, kp, color=palette[idx % len(palette)])
             draw_edges(frame_f, kp)
@@ -168,6 +199,9 @@ while True:
 
     if not queue_side_results.empty():
         frame_s, people_s, latency_s = queue_side_results.get()
+
+        print(f"[DEBUG SIDE] Personas detectadas: {len(people_s)}")
+
         for idx, kp in enumerate(people_s):
             draw_keypoints(frame_s, kp, color=palette[idx % len(palette)])
             draw_edges(frame_s, kp)

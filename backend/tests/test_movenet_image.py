@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import os
 
-MODEL_PATH = "models/movenet_multipose/movenet_multipose_lightning.tflite"
+MODEL_PATH = "models/movenet_multipose/movenet_multipose.tflite"
 IMAGE_PATH = "tests/squat_down.jpg"
 OUTPUT_PATH = "tests/test_output_keypoints.jpg"
 
