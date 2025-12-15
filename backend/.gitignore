@@ -7,3 +7,5 @@ backend/models/movenet_multipose/*.tar.gz
 
 *.tar.gz
 *.tflite
+
+.env
