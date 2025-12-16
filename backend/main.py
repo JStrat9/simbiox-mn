@@ -32,13 +32,13 @@ def main():
     # -----------------------
     # Inicializar cámaras con CameraWorker
     # -----------------------
-    front_queue = Queue(maxsize=1)
+    # front_queue = Queue(maxsize=1)
     side_queue = Queue(maxsize=1)
 
-    front_cam = CameraWorker(CAMERA_FRONT_URL, front_queue, name="Front")
+    # front_cam = CameraWorker(CAMERA_FRONT_URL, front_queue, name="Front")
     side_cam  = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
 
-    front_cam.start()
+    # front_cam.start()
     side_cam.start()
 
     palette = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]
@@ -55,38 +55,39 @@ def main():
         # -----------------------
         # Obtener frames
         # -----------------------
-        if front_queue.empty() or side_queue.empty():
+        # if front_queue.empty() or side_queue.empty(): (CAMBIAR LINEA INFERIRO POR ESTA PARA DOS CAMARAS)
+        if  side_queue.empty():
             time.sleep(0.001)
             continue
 
-        frame_f = front_queue.get()
+        # frame_f = front_queue.get()
         frame_s = side_queue.get()
 
         # -----------------------
         # Inferencia MoveNet
         # -----------------------
-        people_f = movenet.run(frame_f)
+        # people_f = movenet.run(frame_f)
         people_s = movenet.run(frame_s)
 
         # -----------------------
         # Analizar cada persona
         # -----------------------
-        for idx, person_kp in enumerate(people_f):
-            side = choose_side(person_kp)
-            # side_kp = extract_side_keypoints(person_kp, side)
-            result = squat_detector.analyze(person_kp)
-            feedback = map_squat_feedback(result)
+        # for idx, person_kp in enumerate(people_f):
+        #     side = choose_side(person_kp)
+        #     # side_kp = extract_side_keypoints(person_kp, side)
+        #     result = squat_detector.analyze(person_kp)
+        #     feedback = map_squat_feedback(result)
 
-            draw_feedback(
-                frame_f,
-                reps=feedback["reps"],
-                error=feedback["error"]
-            )
+        #     draw_feedback(
+        #         frame_f,
+        #         reps=feedback["reps"],
+        #         error=feedback["error"]
+        #     )
 
-            print(f"[FRONT] Persona {idx}: lado={side}, resultado={result}")
+        #     print(f"[FRONT] Persona {idx}: lado={side}, resultado={result}")
 
-            draw_keypoints(frame_f, person_kp, color=palette[idx % len(palette)])
-            draw_edges(frame_f, person_kp)
+        #     draw_keypoints(frame_f, person_kp, color=palette[idx % len(palette)])
+        #     draw_edges(frame_f, person_kp)
 
         for idx, person_kp in enumerate(people_s):
             side = choose_side(person_kp)
@@ -108,7 +109,7 @@ def main():
         # -----------------------
         # Mostrar frames
         # -----------------------
-        cv2.imshow("Front Camera", frame_f)
+        # cv2.imshow("Front Camera", frame_f)
         cv2.imshow("Side Camera", frame_s)
 
         # -----------------------
@@ -135,7 +136,7 @@ def main():
     # -----------------------
     # Limpiar
     # -----------------------
-    front_cam.stop()
+    # front_cam.stop()
     side_cam.stop()
     cv2.destroyAllWindows()
 
