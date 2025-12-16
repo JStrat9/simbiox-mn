@@ -6,11 +6,13 @@ import time
 import os
 import psutil
 
+from feedback.feedback_mapper import map_squat_feedback
 from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
 from detectors.keypoints_movenet import choose_side, extract_side_keypoints
 from detectors.squat_detector import SquatDetector
 from utils.draw import draw_keypoints, draw_edges
+from utils.draw_feedback import draw_feedback
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
@@ -73,6 +75,13 @@ def main():
             side = choose_side(person_kp)
             # side_kp = extract_side_keypoints(person_kp, side)
             result = squat_detector.analyze(person_kp)
+            feedback = map_squat_feedback(result)
+
+            draw_feedback(
+                frame_f,
+                reps=feedback["reps"],
+                error=feedback["error"]
+            )
 
             print(f"[FRONT] Persona {idx}: lado={side}, resultado={result}")
 
@@ -83,6 +92,13 @@ def main():
             side = choose_side(person_kp)
             # side_kp = extract_side_keypoints(person_kp, side)
             result = squat_detector.analyze(person_kp)
+            feedback = map_squat_feedback(result)
+
+            draw_feedback(
+                frame_s,
+                reps=feedback["reps"],
+                error=feedback["error"]
+            )
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 
