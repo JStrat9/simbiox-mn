@@ -32,3 +32,6 @@ KNEE_FORWARD_THRESHOLD = int(os.getenv("KNEE_FORWARD_THRESHOLD", 120))
 POSE_CONFIDENCE_THRESHOLD = float(os.getenv("POSE_CONFIDENCE_THRESHOLD", 0.3))  # Umbral para score de pose
 KEYPOINT_CONFIDENCE_THRESHOLD = float(os.getenv("KEYPOINT_CONFIDENCE_THRESHOLD", 0.3))  # Umbral promedio de keypoints
 
+# Umbral de repeticiones de error para enviar feedback
+ERROR_REPEAT_THRESHOLD = int(os.getenv("ERROR_REPEAT_THRESHOLD", 2))
+

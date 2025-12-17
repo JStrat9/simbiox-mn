@@ -15,6 +15,7 @@ from config import (
     PERFECT_DEPTH_MAX,
     LEAN_THRESHOLD,
     KNEE_FORWARD_THRESHOLD,
+    ERROR_REPEAT_THRESHOLD,
 )
 
 
@@ -24,8 +25,9 @@ class SquatDetector:
         self.reps = 0
         self.reached_depth = False
         self.first_squat_done = False
-        self.initial_errors = []
-        self.squat_errors_sent = []
+        # self.initial_errors = []
+        self.current_rep_errors = {}
+        self.squat_errors_sent = set()
         self.last_valid_knee_angle = 90
         self.aborted_descend = False
         print("🔥 SquatDetector creado", id(self))
@@ -80,6 +82,9 @@ class SquatDetector:
         # -----------------------
         current_errors  = []
 
+        rep_feedback = []
+
+
         # -----------------------
         # State machine
         # -----------------------
@@ -102,6 +107,12 @@ class SquatDetector:
             self.state = "ascending"
         elif self.state == "ascending" and in_up_zone:
             self.state = "up"
+            # Reset errors for next rep
+            rep_feedback = [
+            err for err, frames in self.current_rep_errors.items()
+            if frames >= ERROR_REPEAT_THRESHOLD
+            ]
+        self.current_rep_errors.clear()
         
 
         if in_too_deep_zone:
@@ -113,17 +124,23 @@ class SquatDetector:
             if ankle_angle > KNEE_FORWARD_THRESHOLD:
                 current_errors.append("Rodillas adelantadas")
 
+        if self.state in ("descending", "down", "ascending"):
+            for err in current_errors:
+                self.current_rep_errors[err] = (
+                    self.current_rep_errors.get(err, 0) +1
+                )
+
+
         # Filter repeated errors
         feedback_to_send = []
-        if not self.first_squat_done:
-            for err in current_errors:
-                if err not in self.initial_errors:
-                    self.initial_errors.append(err)
-        
-        else: 
-            for err in current_errors:
-                if err in self.initial_errors and err not in self.squat_errors_sent:
+
+        if self.first_squat_done:
+            for err in rep_feedback:
+                if err not in self.squat_errors_sent:
                     feedback_to_send.append(err)
+                    self.squat_errors_sent.add(err)
+        
+        
         feedback_to_send = " | ".join(feedback_to_send) if feedback_to_send else ""
 
         if self.state == "up" and self.reached_depth:
