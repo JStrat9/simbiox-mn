@@ -23,7 +23,7 @@ async def send_error(error_data: dict):
     if not connected_clients:
         print("[WS] send_error: no clients connected", flush=True)
         return
-    msg = json.dumps({"type": "feedback", "data": error_data})
+    msg = json.dumps({"type": "feedback", "data": error_data,})
     coros = [ws.send(msg) for ws in list(connected_clients)]
     results = await asyncio.gather(*coros, return_exceptions=True)
     for r in results:

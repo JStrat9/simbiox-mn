@@ -1,10 +1,12 @@
 # main.py
 
+import asyncio
 import cv2
 from queue import Queue
 import time
 import os
 import psutil
+import threading
 
 from feedback.feedback_mapper import map_squat_feedback
 from video.camera_worker import CameraWorker
@@ -13,6 +15,7 @@ from detectors.keypoints_movenet import choose_side, extract_side_keypoints
 from detectors.squat_detector import SquatDetector
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
+from communication.websocke_server import send_error_threadsafe, start_server
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
@@ -84,6 +87,14 @@ def main():
         #         error=feedback["error"]
         #     )
 
+        # if result["feedback"]:
+        #     error_data = {
+        #         "reps": result["reps"],
+        #         "feedback": result["feedback"],
+        # "angles": result["angles"]
+        #     }
+        # send_error_threadsafe(error_data)
+
         #     print(f"[FRONT] Persona {idx}: lado={side}, resultado={result}")
 
         #     draw_keypoints(frame_f, person_kp, color=palette[idx % len(palette)])
@@ -101,6 +112,15 @@ def main():
                 reps=feedback["reps"],
                 error=feedback["error"]
             )
+
+            if result["feedback"]:
+                error_data = {
+                "reps": result["reps"],
+                "feedback": result["feedback"],
+                "angles": result["angles"]
+                }
+                send_error_threadsafe(error_data)
+
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 
@@ -144,4 +164,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # WebSocket server thread
+    ws_thread = threading.Thread(target=lambda: asyncio.run(start_server()), daemon=True)
+    ws_thread.start()
     main()
