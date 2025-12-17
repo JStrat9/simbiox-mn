@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 from typing import List, Optional
+from config import POSE_CONFIDENCE_THRESHOLD, KEYPOINT_CONFIDENCE_THRESHOLD
 
 class MoveNet:
     """
@@ -93,6 +94,8 @@ class MoveNet:
         for person_raw in output[0]:
             keypoints = person_raw[:51].reshape((17,3))  # 17 keypoints * 3
             score = person_raw[55]  # pose score
-            if score > 0.01:
+            # Filtrar por score de pose y confianza promedio de keypoints
+            avg_keypoint_conf = np.mean(keypoints[:, 2])  # Promedio de scores de keypoints
+            if score > POSE_CONFIDENCE_THRESHOLD and avg_keypoint_conf > KEYPOINT_CONFIDENCE_THRESHOLD:
                 people.append(keypoints)
         return people

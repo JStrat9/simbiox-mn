@@ -1,5 +1,8 @@
 # utils/drawing.py
 
+# TODO: DIBUAJAR KEYPOINTS EN ARTICULACIONES PARA MEJOR VISUALIZACIÓN
+# TODO: ¿DEBERÍA COMPROBAR VISIBILIDAD EJ: shoulder_visibility = landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER.value].visibility
+
 import cv2
 import numpy as np
 
@@ -31,3 +34,41 @@ def draw_edges(frame: np.ndarray, keypoints: np.ndarray, color=(255,255,255), th
         y2, x2, c2 = keypoints[j]
         if c1 > threshold and c2 > threshold:
             cv2.line(frame, (int(x1*w), int(y1*h)), (int(x2*w), int(y2*h)), color, 2)
+
+def draw_angles(frame: np.ndarray, keypoints: np.ndarray, angles: dict, side: str, color=(0, 255, 255), font_scale=0.5, thickness=2):
+    """
+    Draws angle values near the corresponding key points.
+    """
+
+    h, w, _ =frame.shape
+
+    # Keypoint indices based on side
+    if side == "left":
+        hip_idx = 11 # left_hip
+        knee_idx = 13 # left_knee
+        ankle_idx = 15 # left_ankle
+    else:
+        hip_idx = 12 # right_hip
+        knee_idx = 14 # right_knee
+        ankle_idx = 16 # right_ankle
+
+    # Draw knee angle
+    if 'knee' in angles and knee_idx < len(keypoints):
+        y, x, c = keypoints[knee_idx]
+        if c > 0.3: # visibility threshold
+            pos = (int(x * w) + 10, int(y * h) - 10)
+            cv2.putText(frame, f"Knee: {angles['knee']:.1f}", pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+
+    # Draw hip angle
+    if 'hip' in angles and hip_idx < len(keypoints):
+        y, x, c = keypoints[hip_idx]
+        if c > 0.3: # visibility threshold
+            pos = (int(x * w) + 10, int(y * h) - 10)
+            cv2.putText(frame, f"Hip: {angles['hip']:.1f}", pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+
+    # Draw ankle angle
+    if 'ankle' in angles and ankle_idx < len(keypoints):
+        y, x, c = keypoints[ankle_idx]
+        if c > 0.3: # visibility threshold
+            pos = (int(x * w) + 10, int(y * h) -10)
+            cv2.putText(frame, f"Ankle: {angles['ankle']:.1f}", pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)

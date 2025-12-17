@@ -11,7 +11,7 @@ from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
 from detectors.keypoints_movenet import choose_side, extract_side_keypoints
 from detectors.squat_detector import SquatDetector
-from utils.draw import draw_keypoints, draw_edges
+from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
@@ -88,6 +88,7 @@ def main():
 
         #     draw_keypoints(frame_f, person_kp, color=palette[idx % len(palette)])
         #     draw_edges(frame_f, person_kp)
+        # draw_angles(frame_f, person_kp, result["angles"], side)
 
         for idx, person_kp in enumerate(people_s):
             side = choose_side(person_kp)
@@ -105,6 +106,7 @@ def main():
 
             draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
             draw_edges(frame_s, person_kp)
+            draw_angles(frame_s, person_kp, result["angles"], side)
 
         # -----------------------
         # Mostrar frames

@@ -25,3 +25,10 @@ PERFECT_DEPTH_MAX = int(os.getenv("PERFECT_DEPTH_MAX", 69))
 LEAN_THRESHOLD = int(os.getenv("LEAN_THRESHOLD", 50))
 KNEE_FORWARD_THRESHOLD = int(os.getenv("KNEE_FORWARD_THRESHOLD", 110))
 
+# ---------------------------------------|
+# ---- Parámetros de detección ----|
+# ---------------------------------------|
+# Umbrales de confianza para MoveNet
+POSE_CONFIDENCE_THRESHOLD = float(os.getenv("POSE_CONFIDENCE_THRESHOLD", 0.3))  # Umbral para score de pose
+KEYPOINT_CONFIDENCE_THRESHOLD = float(os.getenv("KEYPOINT_CONFIDENCE_THRESHOLD", 0.3))  # Umbral promedio de keypoints
+
