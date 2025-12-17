@@ -3,6 +3,7 @@
 import numpy as np
 from utils.geometry import angle_from_arrays
 from utils.pose_transform import as_point_tuple
+from utils.geometry import angle_with_vertical
 from detectors.keypoints_movenet import (
     choose_side,
     extract_side_keypoints,
@@ -26,6 +27,7 @@ class SquatDetector:
         self.initial_errors = []
         self.squat_errors_sent = []
         self.last_valid_knee_angle = 90
+        self.aborted_descend = False
         print("🔥 SquatDetector creado", id(self))
 
 
@@ -56,7 +58,7 @@ class SquatDetector:
         knee_angle = angle_from_arrays(hip, knee, ankle)
         hip_angle = angle_from_arrays(shoulder, hip, knee)
         # back_angle = angle_from_arrays(shoulder, hip, knee)
-        ankle_angle = angle_from_arrays(knee, ankle, ankle)
+        ankle_angle = angle_with_vertical(knee, ankle)
 
         # Knee angle sanity check
         if 20 < knee_angle < 200:
@@ -74,36 +76,41 @@ class SquatDetector:
         in_too_deep_zone = knee_angle < PERFECT_DEPTH_MIN
 
         # -----------------------
+        # Errors initialization
+        # -----------------------
+        current_errors  = []
+
+        # -----------------------
         # State machine
         # -----------------------
         if self.state == "up" and in_mid_zone:
             self.state = "descending"
+            self.aborted_descend = True
         elif self.state == "descending":
             if in_depth_zone:
                 self.state = "down"
                 self.reps += 1
                 self.reached_depth = True
+                self.aborted_descend = False
             elif in_up_zone:
                 self.state = "up"
+                # Aborted descent
+                if self.aborted_descend:
+                    current_errors.append("No bajas lo suficiente")
+                self.aborted_descend = False
         elif self.state == "down" and in_mid_zone:
             self.state = "ascending"
         elif self.state == "ascending" and in_up_zone:
             self.state = "up"
         
-        # -----------------------
-        # Errors
-        # -----------------------
-        current_errors  = []
 
         if in_too_deep_zone:
             current_errors .append("Baja demasiado")
-        elif in_mid_zone:
-            current_errors .append("No bajas lo suficiente")
 
         if in_mid_zone or in_depth_zone:
             if hip_angle < LEAN_THRESHOLD:
                 current_errors.append("Espalda encorvada")
-            if ankle_angle < KNEE_FORWARD_THRESHOLD:
+            if ankle_angle > KNEE_FORWARD_THRESHOLD:
                 current_errors.append("Rodillas adelantadas")
 
         # Filter repeated errors
