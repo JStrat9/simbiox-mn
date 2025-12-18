@@ -112,7 +112,7 @@ class SquatDetector:
             err for err, frames in self.current_rep_errors.items()
             if frames >= ERROR_REPEAT_THRESHOLD
             ]
-        self.current_rep_errors.clear()
+            self.current_rep_errors.clear()
         
 
         if in_too_deep_zone:

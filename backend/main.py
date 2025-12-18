@@ -113,16 +113,16 @@ def main():
                 error=feedback["error"]
             )
 
-            if result["feedback"] or result["errors"]:
-                error_data = {
-                "feedback": result["feedback"],
-                "current_errors": result["errors"],
-                "reps": result["reps"],
-                "side":result["side"],
-                "angles": result["angles"]
-                }
-                print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
-                send_error_threadsafe(error_data)
+            if result["feedback"]:
+                send_error_threadsafe({
+                    "feedback": result["feedback"],
+                    # "current_errors": result["errors"],
+                    "reps": result["reps"],
+                    "side":result["side"],
+                    "angles": result["angles"]
+                })
+                # print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
+                # send_error_threadsafe(error_data)
 
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
