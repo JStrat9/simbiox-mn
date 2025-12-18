@@ -43,9 +43,12 @@ def send_error_threadsafe(error_data: dict, timeout: float = 1.0):
         print("[WS] send_error_threadsafe failed:", e, flush=True)
         
 
-async def start_server(host: str = "0.0.0.0", port: int = 8765):
+async def start_server(host: str = "0.0.0.0", port: int = 8765, ready_event=None):
     global server_loop
     server_loop = asyncio.get_running_loop()
     print(f"[WS] starting server on ws://{host}:{port} loop id={id(server_loop)}", flush=True)
     server = await websockets.serve(handler, host, port)
+    if ready_event:
+        ready_event.set()
+        print("[WS] Servidor listo, evento señalizado", flush=True)
     await server.wait_closed()

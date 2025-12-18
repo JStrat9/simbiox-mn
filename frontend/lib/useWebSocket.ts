@@ -1,53 +1,91 @@
 // lib/useWebSocket.ts
-
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAlertsStore } from "@/store/alerts";
 
 export function useWebSocket() {
-    console.log("[WS HOOK] render");
-
     const addAlert = useAlertsStore((state) => state.addAlert);
+    const socketRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
-        console.log("[WS HOOK] effect mounted");
-        let socket: WebSocket;
-        const connect = () => {
-            socket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL!);
+        let reconnectTimeout: NodeJS.Timeout;
 
-            socket.onopen = () => {
-                console.log("Connected to WebSocket server");
+        const connect = () => {
+            const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
+            console.log("[WS] Connecting to:", wsUrl);
+
+            const ws = new WebSocket(wsUrl);
+            socketRef.current = ws;
+
+            ws.onopen = () => {
+                console.log("[WS] Connected to WebSocket server");
             };
 
-            socket.onmessage = (event) => {
+            ws.onmessage = (event) => {
+                console.log("[WS] raw message received:", event.data);
+
                 try {
                     const msg = JSON.parse(event.data);
+                    console.log("📦 [WS] parsed message:", msg);
 
+                    // Comprobamos que tenga el formato que enviamos
                     if (msg.type === "feedback" && msg.data) {
-                        const { feedback, reps, side, angles } = msg.data;
-                        const clientId = "1"; // Add real client ID
-                        const message = `${feedback} (Reps: ${reps}, Side: ${side}, Angles: ${angles})`;
+                        const { feedback, current_errors, reps, side, angles } =
+                            msg.data;
+
+                        // Mostrar tanto feedback acumulado como errores actuales
+                        let message = "";
+                        if (feedback) {
+                            message = `Feedback: ${feedback}`;
+                        }
+                        if (current_errors && current_errors.length > 0) {
+                            const errorsStr = current_errors.join(", ");
+                            message +=
+                                (message ? " | " : "") +
+                                `Errores actuales: ${errorsStr}`;
+                        }
+
+                        message += `(Reps: ${reps}, Side: ${side})`;
+
+                        console.log("[WS] feedback received:", message);
+
                         addAlert({
-                            clientId,
+                            clientId: "1", // Aquí puedes mapear al cliente real si tienes varios
                             message,
                         });
                     } else {
-                        console.warn("Mensaje ws ingorado", msg);
+                        console.warn("[WS] Ignored message:", msg);
                     }
                 } catch (err) {
-                    console.error("Error procesando mensaje:", err);
+                    console.error("[WS] Failed to parse message:", err);
                 }
             };
 
-            socket.onclose = () => {
-                console.log("WebSocket cerrado. Intentando reconectar...");
-                setTimeout(connect, 2000);
+            ws.onclose = (e) => {
+                console.warn(
+                    "[WS] Connection closed. Reconnecting in 2s...",
+                    e.reason
+                );
+                reconnectTimeout = setTimeout(connect, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error("[WS] WebSocket error:", err);
+                ws.close();
             };
         };
 
         connect();
 
-        return () => socket && socket.close();
+        return () => {
+            clearTimeout(reconnectTimeout);
+            if (
+                socketRef.current &&
+                socketRef.current.readyState === WebSocket.OPEN
+            ) {
+                socketRef.current.close();
+            }
+        };
     }, [addAlert]);
 }

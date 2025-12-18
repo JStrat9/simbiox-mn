@@ -15,7 +15,7 @@ from detectors.keypoints_movenet import choose_side, extract_side_keypoints
 from detectors.squat_detector import SquatDetector
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
-from communication.websocke_server import send_error_threadsafe, start_server
+from communication.websocket_server import send_error_threadsafe, start_server
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
@@ -113,12 +113,15 @@ def main():
                 error=feedback["error"]
             )
 
-            if result["feedback"]:
+            if result["feedback"] or result["errors"]:
                 error_data = {
-                "reps": result["reps"],
                 "feedback": result["feedback"],
+                "current_errors": result["errors"],
+                "reps": result["reps"],
+                "side":result["side"],
                 "angles": result["angles"]
                 }
+                print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
                 send_error_threadsafe(error_data)
 
 
@@ -164,7 +167,20 @@ def main():
 
 
 if __name__ == "__main__":
+    ws_ready_event = threading.Event()
+
+    def run_ws_server():
+        asyncio.run(start_server(ready_event=ws_ready_event))
     # WebSocket server thread
-    ws_thread = threading.Thread(target=lambda: asyncio.run(start_server()), daemon=True)
+    ws_thread = threading.Thread(target=run_ws_server, daemon=True)
     ws_thread.start()
+
+    # Esperar a que el servidor WebSocket esté listo
+    print("[INFO] Esperando a que el servidor WebSocket esté listo...")
+    ws_ready_event.wait(timeout=5.0)
+    print("[INFO] Servidor WebSocket listo!")
+    
+    # Pequeña pausa adicional para asegurar que todo está inicializado
+    time.sleep(0.5)
+
     main()
