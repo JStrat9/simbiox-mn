@@ -14,7 +14,38 @@ type ClientsStore = {
 };
 
 export const useClientsStore = create<ClientsStore>((set) => ({
-    clients: {},
+    clients: {
+        "1": {
+            reps: 4,
+            exercise: "Sentadillas",
+            currentErrors: ["Espalda encorvada"],
+        },
+        "2": {
+            reps: 7,
+            exercise: "Sentadillas",
+            currentErrors: ["Baja poco"],
+        },
+        "3": {
+            reps: 2,
+            exercise: "Sentadillas",
+            currentErrors: ["Rodillas adelantadas"],
+        },
+        "4": {
+            reps: 4,
+            exercise: "Sentadillas",
+            currentErrors: ["Espalda encorvada"],
+        },
+        "5": {
+            reps: 7,
+            exercise: "Sentadillas",
+            currentErrors: ["Baja poco"],
+        },
+        "6": {
+            reps: 2,
+            exercise: "Sentadillas",
+            currentErrors: ["Rodillas adelantadas"],
+        },
+    },
     updateClient: (id, data) =>
         set((state) => ({
             clients: {

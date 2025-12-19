@@ -11,14 +11,12 @@ export function ClientCard({ clientId }: { clientId: string }) {
     const hasErrors = client.currentErrors.length > 0;
 
     return (
-        <div className="rounded-xl border p-4 w-[360px] bg-white shadow-sm">
+        <div className="rounded-xl border border-gray-300 p-4 w-full max-w-[360px] bg-white shadow-lg my-1">
             <h2 className="text-lg font-semibold"> Cliente {clientId}</h2>
 
             <div className="flex justify-between text-sm mt-2">
-                <span>Reps: {client.reps}</span>
-                <span>Ejercicio: {client.exercise}</span>
-
-                <div className="mt-3">
+                {/* IZQUIERDA — ERRORES */}
+                <div className="flex-1">
                     <p
                         className={`font-medium ${
                             hasErrors ? "text-red-600" : "text-green-600"
@@ -36,6 +34,11 @@ export function ClientCard({ clientId }: { clientId: string }) {
                             ))}
                         </ul>
                     )}
+                </div>
+                {/* DERECHA — ESTADO */}
+                <div className="text-right min-w-[100px]">
+                    <p>Reps: {client.reps}</p>
+                    <p>Ejercicio: {client.exercise}</p>
                 </div>
             </div>
         </div>
