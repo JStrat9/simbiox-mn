@@ -9,7 +9,7 @@ import { useClientsStore } from "@/store/clients";
 // import WSConsoleLogger from "@/components/WSConsoleLogger";
 
 export default function Home() {
-    const { clients } = useClientsStore((state) => state.clients);
+    const clients = useClientsStore((s) => s.clients);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
