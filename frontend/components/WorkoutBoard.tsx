@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import WorkoutStationCard from "./WorkoutStationCard";
 
-// TODO: REPASAR CÓDIGO O VOLVER A ESCRIBIR PARA ENTENDER MEJOR Y ASEGURAR QUE FUNCIONA PARA UN CASO PRÁCTICO REAL. EL ENTRENADOR ACTUALIZANDO PESOS Y REPS LLEGANDO DE MoveNet
-
 const athletesBase = [
     { id: "a1", name: "Joan", avatarUrl: "/joan.jpg" },
     { id: "a2", name: "Luz", avatarUrl: "/avatars/luz.jpg" },
@@ -31,7 +29,8 @@ const WorkoutBoard: React.FC = () => {
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <h1 className="text-4xl font-bold">CROSSBOXING</h1>
+            <div className="flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold">Entreno del día</h2>
                 <button
                     onClick={nextRotation}
