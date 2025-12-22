@@ -1,5 +1,7 @@
 "use client";
 
+// TODO: COMPROBAR COMO HACER QUE EL BOTÓN CAMBIE DE VISTA REVIEW A WORKOUTBOARD (LIVE MODE)
+
 import { useClientsStore } from "@/store/clients";
 import { useUIStore } from "@/store/ui";
 

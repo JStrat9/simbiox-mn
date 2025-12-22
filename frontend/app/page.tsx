@@ -19,7 +19,7 @@ export default function Home() {
                 {/* {Object.entries(clients).map(([id]) => (
                     <ClientCard key={id} clientId={id} />
                 ))} */}
-                {/* <WorkoutBoard /> */}
+                <WorkoutBoard />
                 {/* <AthledMinicard /> */}
                 <FloatingErrorsButton />
             </main>
