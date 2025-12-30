@@ -11,5 +11,5 @@ type UIStore = {
 
 export const useUIStore = create<UIStore>((set) => ({
     mode: "TRAINING",
-    setMode: (mode) => ({ mode }),
+    setMode: (mode) => set({ mode }),
 }));

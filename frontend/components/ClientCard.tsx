@@ -1,8 +1,6 @@
 "use client";
 // components/ClientCard.tsx
 
-// TODO: REFACTOR. REVISAR SUGERENCUA CHATGPT
-
 import { useClientsStore } from "@/store/clients";
 
 export function ClientCard({ clientId }: { clientId: string }) {
