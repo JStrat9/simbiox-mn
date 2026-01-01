@@ -10,9 +10,13 @@ type ClientState = {
 
 type ClientsStore = {
     clients: Record<string, ClientState>;
-    updateClient: (id: string, data: Partial<ClientState>) => void;
+    updateClient: (id: string, data: Partial<ClientState> | ((prev: ClientState) => Partial<ClientState>)) => void;
     clearAllErrors: () => void;
 };
+
+type WSMessage = 
+    | { type: "REP_UPDATE"; clientId: string; reps: number}
+    | { type: "POSE_ERROR"; clientId: string; exercise: string; errorCode: string };
 
 export const useClientsStore = create<ClientsStore>((set) => ({
     clients: {
@@ -53,7 +57,9 @@ export const useClientsStore = create<ClientsStore>((set) => ({
                 ...state.clients,
                 [id]: {
                     ...state.clients[id],
-                    ...data,
+                    ...(typeof data === "function")
+                        ? data(state.clients[id])
+                        : data,
                 },
             },
         })),

@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAlertsStore } from "@/store/alerts";
+import { useClientsStore  } from "@/store/clients";
 
 export function useWebSocket() {
-    const addAlert = useAlertsStore((state) => state.addAlert);
+    const updateClient = useClientsStore((s) => s.updateClient);
     const socketRef = useRef<WebSocket | null>(null);
 
     useEffect(() => {
@@ -23,39 +23,28 @@ export function useWebSocket() {
             };
 
             ws.onmessage = (event) => {
-                console.log("[WS] raw message received:", event.data);
-
                 try {
                     const msg = JSON.parse(event.data);
-                    console.log("📦 [WS] parsed message:", msg);
+                    console.log("📦 [WS] Received message:", msg);
 
-                    // Comprobamos que tenga el formato que enviamos
-                    if (msg.type === "feedback" && msg.data) {
-                        const { feedback, current_errors, reps, side, angles } =
-                            msg.data;
-
-                        // Mostrar tanto feedback acumulado como errores actuales
-                        let message = "";
-                        if (feedback) {
-                            message = `Feedback: ${feedback}`;
+                    switch (msg.type) {
+                        case "REP_UPDATE": {
+                            const { clientId, reps } = msg;
+                            updateClient(clientId, { reps });
+                            break;
                         }
-                        if (current_errors && current_errors.length > 0) {
-                            const errorsStr = current_errors.join(", ");
-                            message +=
-                                (message ? " | " : "") +
-                                `Errores actuales: ${errorsStr}`;
+                        case "POSE_ERROR": {
+                            const { clientId, exercise, errorCode } = msg;
+                            updateClient(clientId, (prev) => ({
+                                currentErrors: [
+                                    ...prev.currentErrors,
+                                    `${exercise}: ${errorCode}`,
+                                ],
+                            }));
+                            break;
                         }
-
-                        message += `(Reps: ${reps}, Side: ${side})`;
-
-                        console.log("[WS] feedback received:", message);
-
-                        addAlert({
-                            clientId: "1", // Aquí puedes mapear al cliente real si tienes varios
-                            message,
-                        });
-                    } else {
-                        console.warn("[WS] Ignored message:", msg);
+                        default:
+                            console.warn("[WS] Unknown message type:", msg.type);
                     }
                 } catch (err) {
                     console.error("[WS] Failed to parse message:", err);
@@ -87,5 +76,5 @@ export function useWebSocket() {
                 socketRef.current.close();
             }
         };
-    }, [addAlert]);
+    }, [updateClient]);
 }

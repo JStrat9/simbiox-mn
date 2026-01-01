@@ -1,3 +1,5 @@
+// store/alerts.ts
+
 import { create } from "zustand";
 
 type Alert = {

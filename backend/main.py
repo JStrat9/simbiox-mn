@@ -8,14 +8,14 @@ import os
 import psutil
 import threading
 
-from feedback.feedback_mapper import map_squat_feedback
+from feedback.event_mapper import map_squat_event
 from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
 from detectors.keypoints_movenet import choose_side, extract_side_keypoints
 from detectors.squat_detector import SquatDetector
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
-from communication.websocket_server import send_error_threadsafe, start_server
+from communication.websocket_server import emit_pose_error, emit_rep_update, start_server
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
@@ -54,6 +54,10 @@ def main():
     frames = 0
 
     print("[INFO] Iniciando loop principal...")
+
+    client_prev_errors: dict[str, list[str]] = {}
+    palette = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]
+
     while True:
         # -----------------------
         # Obtener frames
@@ -104,23 +108,23 @@ def main():
         for idx, person_kp in enumerate(people_s):
             side = choose_side(person_kp)
             # side_kp = extract_side_keypoints(person_kp, side)
+            client_id = str(idx + 1)
             result = squat_detector.analyze(person_kp)
-            feedback = map_squat_feedback(result)
+            prev_errors = client_prev_errors.get(client_id, [])
+            events = map_squat_event(client_id, result, prev_errors)
+            client_prev_errors[client_id] = result.get("errors", [])
 
             draw_feedback(
                 frame_s,
-                reps=feedback["reps"],
-                error=feedback["error"]
+                reps=result.get("reps", ),
+                error=result.get("feedback") or (result.get("errors")[0] if result.get("errors") else "")
             )
 
-            if result["feedback"]:
-                send_error_threadsafe({
-                    "feedback": result["feedback"],
-                    # "current_errors": result["errors"],
-                    "reps": result["reps"],
-                    "side":result["side"],
-                    "angles": result["angles"]
-                })
+            for event in events:
+                if event["type"] == "REP_UPDATE":
+                    emit_rep_update(event["clientId"], event["reps"])
+                elif event["type"] == "POSE_ERROR":
+                    emit_pose_error(event["clientId"], event["exercise"], event["errorCode"])
                 # print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
                 # send_error_threadsafe(error_data)
 
