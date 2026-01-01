@@ -11,6 +11,7 @@ type ClientState = {
 type ClientsStore = {
     clients: Record<string, ClientState>;
     updateClient: (id: string, data: Partial<ClientState>) => void;
+    clearAllErrors: () => void;
 };
 
 export const useClientsStore = create<ClientsStore>((set) => ({
@@ -55,5 +56,15 @@ export const useClientsStore = create<ClientsStore>((set) => ({
                     ...data,
                 },
             },
+        })),
+
+    clearAllErrors: () =>
+        set((state) => ({
+            clients: Object.fromEntries(
+                Object.entries(state.clients).map(([id, client]) => [
+                    id,
+                    { ...client, currentErrors: [] },
+                ])
+            ),
         })),
 }));

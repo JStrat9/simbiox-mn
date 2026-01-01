@@ -3,7 +3,7 @@
 import React from "react";
 import { useClientsStore } from "@/store/clients";
 import { ClientCard } from "@/components/ClientCard";
-
+import { BackToTrainingButton } from "./BackToTrainingButton";
 const ReviewView: React.FC = () => {
     const clients = useClientsStore((s) => s.clients);
 
@@ -25,6 +25,7 @@ const ReviewView: React.FC = () => {
 
     return (
         <div className="flex min-h-screen flex-col bg-gray-100 p-4">
+            <BackToTrainingButton />
             {/* Header */}
             <header className="mb-4">
                 <h1 className="text-2xl font-bold">Revisión técnica</h1>

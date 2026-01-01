@@ -2,7 +2,7 @@
 
 import { useClientsStore } from "@/store/clients";
 import { useUIStore } from "@/store/ui";
-
+import Image from "next/image";
 export function FloatingErrorsButton() {
     const clients = useClientsStore((s) => s.clients);
     const setMode = useUIStore((s) => s.setMode);
@@ -26,14 +26,14 @@ export function FloatingErrorsButton() {
                 ${
                     hasErrors
                         ? "bg-red-600 text-white hover:bg-red-700"
-                        : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+                        : "bg-transparent border border-gray-300 shadow-lg text-gray-700"
                 }
             `}
             aria-label="Ver errores de clientes"
         >
-            ⚠️
+            <Image src="/chat_bubble.svg" alt="Unread chat" width={24} height={24} />
             {hasErrors && (
-                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-yellow-400" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-yellow-400 text-xs flex flex-items-center justify-center pb-4">!</span>
             )}
         </button>
     );
