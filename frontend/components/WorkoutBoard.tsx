@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import WorkoutStationCard from "./WorkoutStationCard";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 const athletesBase = [
     { id: "a1", name: "Joan", avatarUrl: "/joan.jpg" },
@@ -21,6 +22,7 @@ const stations = [
 
 const WorkoutBoard: React.FC = () => {
     const [rotationIndex, setRotationIndex] = useState(0);
+    // useWebSocket();
 
     const nextRotation = () => {
         setRotationIndex((prev) => (prev + 1) % athletesBase.length);
