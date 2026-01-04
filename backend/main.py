@@ -8,7 +8,7 @@ import os
 import psutil
 import threading
 
-from feedback.event_mapper import map_squat_event
+from feedback.event_mapper import SquatEventAggregator
 from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
 from detectors.keypoints_movenet import choose_side, extract_side_keypoints
@@ -55,9 +55,7 @@ def main():
 
     print("[INFO] Iniciando loop principal...")
 
-    client_prev_errors: dict[str, list[str]] = {}
-    client_prev_reps: dict[str, int] = {}
-    palette = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]
+    aggregator = SquatEventAggregator()
 
     while True:
         # -----------------------
@@ -112,39 +110,12 @@ def main():
             client_id = str(idx + 1)
             result = squat_detector.analyze(person_kp)
 
-            events = []
-
-            # -----------------------
-            # REP_UPDATE (solo si cambia)
-            # -----------------------
-            prev_reps = client_prev_reps.get(client_id, 0)
-            current_reps = result.get("reps", 0)
-
-            if current_reps != prev_reps:
-                events.append({
-                    "type": "REP_UPDATE",
-                    "clientId": client_id,
-                    "reps": current_reps
-
-                })
-                client_prev_reps[client_id] = current_reps
-
-            # -----------------------
-            # POSE_ERROR (como ya haces)
-            # -----------------------
-            prev_errors = client_prev_errors.get(client_id, [])
-            error_events = map_squat_event(client_id, result, prev_errors)
-
-            events.extend(
-                e for e in error_events if e["type"] == "POSE_ERROR"
-            )
-
-            client_prev_errors[client_id] = result.get("errors", [])
+            events = aggregator.process(client_id, result)
 
             draw_feedback(
                 frame_s,
                 reps=result.get("reps", ),
-                error=result.get("feedback") or (result.get("errors")[0] if result.get("errors") else "")
+                error=result["errors"][0] if result.get("errors") else ""
             )
 
             for event in events:

@@ -1,40 +1,37 @@
-# feedback/feedback_mapper.py
+# feedback/event_mapper.py
 
-from typing import Dict, List, Optional
+class SquatEventAggregator:
+    def __init__(self):
+        self.prev_reps = {}
+        self.prev_errors = {}
 
-def map_squat_event(client_id: str, result: Dict, prev_errors: Optional[List[str]] = None) -> List[Dict]:
-    """
-    Convierte output de SquatDetector en lista de eventos listos para emitir por WS.
-    
-    Args:
-        client_id: ID del cliente
-        result: salida de SquatDetector.analyze()
-        prev_errors: errores previos para detectar duplicados
+    def process(self, client_id: str, result: dict) -> list[dict]:
+        events = []
 
-    Returns:
-        Lista de eventos: cada evento es dict con `type` y payload mínimo
-    """
+        # --- REP_UPDATE ---
+        prev = self.prev_reps.get(client_id, 0)
+        curr = result.get("reps", 0)
 
-    events = []
-    prev_errors = prev_errors or []
+        if curr != prev:
+            events.append({
+                "type": "REP_UPDATE",
+                "clientId": client_id,
+                "reps": curr
+            })
+            self.prev_reps[client_id] = curr
 
-    # REP_UPDATE
-    events.append({
-        "type": "REP_UPDATE",
-        "clientId": client_id,
-        "reps": result.get("reps", 0)
-    })
+        # --- POSE_ERROR ---
+        prev_errs = self.prev_errors.get(client_id, [])
+        curr_errs = result.get("errors", [])
 
-    # POSE_ERROR
-    current_errors = result.get("errors", [])
-    new_errors = [e for e in current_errors if e not in prev_errors]
+        for err in curr_errs:
+            if err not in prev_errs:
+                events.append({
+                    "type": "POSE_ERROR",
+                    "clientId": client_id,
+                    "exercise": "Squat",
+                    "errorCode": err
+                })
+        self.prev_errors[client_id] = curr_errs
 
-    for err in new_errors:
-        events.append({
-            "type": "POSE_ERROR",
-            "clientId": client_id,
-            "exercise": result.get("exercise", "unknown"),
-            "errorCode": err,
-        })
-
-    return events
+        return events

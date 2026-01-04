@@ -35,12 +35,19 @@ export function useWebSocket() {
                         }
                         case "POSE_ERROR": {
                             const { clientId, exercise, errorCode } = msg;
-                            updateClient(clientId, (prev) => ({
-                                currentErrors: [
-                                    ...prev.currentErrors,
-                                    `${exercise}: ${errorCode}`,
-                                ],
-                            }));
+                            const newError = `${exercise}: ${errorCode}`;
+                            
+                            updateClient(clientId, (prev) => {
+                                if (prev.currentErrors.includes(newError)) {
+                                    return {};
+                                }
+                                return {
+                                    currentErrors: [
+                                        ...prev.currentErrors,
+                                        newError,
+                                    ],
+                                };
+                            });
                             break;
                         }
                         default:

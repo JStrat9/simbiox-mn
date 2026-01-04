@@ -51,18 +51,17 @@ export const useClientsStore = create<ClientsStore>((set) => ({
             currentErrors: ["Rodillas adelantadas"],
         },
     },
-    updateClient: (id, data) =>
-        set((state) => ({
+    updateClient: (id, data) => set((state) => {
+        const client = state.clients[id];
+        if (!client) return state;
+        const updates = typeof data === "function" ? data(client) : data;
+        return {
             clients: {
                 ...state.clients,
-                [id]: {
-                    ...state.clients[id],
-                    ...(typeof data === "function")
-                        ? data(state.clients[id])
-                        : data,
-                },
+                [id]: { ...client, ...updates },
             },
-        })),
+        };
+    }),
 
     clearAllErrors: () =>
         set((state) => ({

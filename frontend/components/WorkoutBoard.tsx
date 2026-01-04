@@ -22,7 +22,7 @@ const stations = [
 
 const WorkoutBoard: React.FC = () => {
     const [rotationIndex, setRotationIndex] = useState(0);
-    // useWebSocket();
+    useWebSocket();
 
     const nextRotation = () => {
         setRotationIndex((prev) => (prev + 1) % athletesBase.length);
