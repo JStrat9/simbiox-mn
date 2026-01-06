@@ -21,21 +21,13 @@ from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
 
 def main():
-    # -----------------------
     # Inicializar MoveNet
-    # -----------------------
     print("[INFO] Cargando MoveNet...")
     movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
 
-    # -----------------------
-    # Inicializar SquatDetector
-    # -----------------------
     detector_manager = SquatDetectorManager(max_clients=6)
 
-    # -----------------------
     # Inicializar cámaras con CameraWorker
-    # -----------------------
-    # front_queue = Queue(maxsize=1)
     side_queue = Queue(maxsize=1)
 
     # front_cam = CameraWorker(CAMERA_FRONT_URL, front_queue, name="Front")
@@ -46,9 +38,7 @@ def main():
 
     palette = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]
 
-    # -----------------------
     # Variables de performance
-    # -----------------------
     process = psutil.Process(os.getpid())
     last_print = time.time()
     frames = 0
@@ -58,21 +48,19 @@ def main():
     aggregator = SquatEventAggregator()
 
     while True:
-        # -----------------------
         # Obtener frames
-        # -----------------------
         # if front_queue.empty() or side_queue.empty(): (CAMBIAR LINEA INFERIRO POR ESTA PARA DOS CAMARAS)
         if  side_queue.empty():
             time.sleep(0.001)
             continue
 
-        # frame_f = front_queue.get()
-        frame_s = side_queue.get()
-
         # -----------------------
         # Inferencia MoveNet
         # -----------------------
+        # frame_f = front_queue.get()
         # people_f = movenet.run(frame_f)
+
+        frame_s = side_queue.get()
         people_s = movenet.run(frame_s)
 
         # -----------------------
@@ -113,14 +101,21 @@ def main():
             detector = detector_manager.get(client_id)
             result = detector.analyze(person_kp)
 
+            # --- Process events ---
             events = aggregator.process(client_id, result)
 
+            # --- Draw feedback ---
             draw_feedback(
                 frame_s,
                 reps=result.get("reps", ),
                 error=result["errors"][0] if result.get("errors") else ""
             )
 
+            draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
+            draw_edges(frame_s, person_kp)
+            draw_angles(frame_s, person_kp, result.get("angles", {}), side)
+
+            # --- Emit events ---
             for event in events:
                 if event["type"] == "REP_UPDATE":
                     emit_rep_update(event["clientId"], event["reps"])
@@ -129,22 +124,14 @@ def main():
                 # print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
                 # send_error_threadsafe(error_data)
 
-
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 
-            draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
-            draw_edges(frame_s, person_kp)
-            draw_angles(frame_s, person_kp, result["angles"], side)
 
-        # -----------------------
-        # Mostrar frames
-        # -----------------------
+        # --- Show frames ---
         # cv2.imshow("Front Camera", frame_f)
         cv2.imshow("Side Camera", frame_s)
 
-        # -----------------------
-        # Performance (FPS / CPU / RAM)
-        # -----------------------
+        # --- Performance (FPS / CPU / RAM) ---
         frames += 1
         now = time.time()
         if now - last_print >= 1.0:
@@ -157,15 +144,11 @@ def main():
             last_print = now
             frames = 0
 
-        # -----------------------
-        # Salida
-        # -----------------------
+        # --- Salida ---
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-    # -----------------------
-    # Limpiar
-    # -----------------------
+    # --- Limpiar ---
     # front_cam.stop()
     side_cam.stop()
     cv2.destroyAllWindows()
