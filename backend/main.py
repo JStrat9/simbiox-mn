@@ -1,5 +1,7 @@
 # main.py
 
+# TODO: ENTENDER CÓMO IDENTIFICAR QUÉ CLIENTE ESTÁ HACIENDO QUE EJERCICIO (ESTACIÓN) chatGPT:"identidad funcional dentro de una sesión."
+
 import asyncio
 import cv2
 from queue import Queue
@@ -7,6 +9,7 @@ import time
 import os
 import psutil
 import threading
+import numpy as np
 
 from feedback.event_mapper import SquatEventAggregator
 from video.camera_worker import CameraWorker
@@ -16,8 +19,15 @@ from detectors.squat_detector_manager import SquatDetectorManager
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
 from communication.websocket_server import emit_pose_error, emit_rep_update, start_server
+from tracking.tracker_iou import CentroidTracker
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
+
+def get_centroid(keypoints):
+    visible = [kp[:2] for kp in keypoints if kp[2] > 0.1] # kp = (x, y, score)
+    if not visible:
+        return np.array([0, 0])
+    return np.mean(visible, axis=0)
 
 
 def main():
@@ -46,6 +56,7 @@ def main():
     print("[INFO] Iniciando loop principal...")
 
     aggregator = SquatEventAggregator()
+    tracker = CentroidTracker(max_clients=6, distance_threshold=100)
 
     while True:
         # Obtener frames
@@ -53,6 +64,8 @@ def main():
         if  side_queue.empty():
             time.sleep(0.001)
             continue
+
+        current_client_ids = set()
 
         # -----------------------
         # Inferencia MoveNet
@@ -97,7 +110,15 @@ def main():
         for idx, person_kp in enumerate(people_s):
             side = choose_side(person_kp)
             # side_kp = extract_side_keypoints(person_kp, side)
-            client_id = str(idx + 1)
+            centroid = get_centroid(person_kp)
+            try:
+                client_id = tracker.get_client_id(centroid)
+            except RuntimeError:
+                # If there are no available IDs, skip this person
+                continue
+
+            current_client_ids.add(client_id)
+
             detector = detector_manager.get(client_id)
             result = detector.analyze(person_kp)
 
@@ -126,6 +147,10 @@ def main():
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 
+        # --- Release missing clients ---
+        print(f"[TRACK] active clients this frame: {current_client_ids}")
+        print("[DEBUG] people detected:", len(people_s))
+        tracker.release_missing(current_client_ids)
 
         # --- Show frames ---
         # cv2.imshow("Front Camera", frame_f)
