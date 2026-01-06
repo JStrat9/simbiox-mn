@@ -12,7 +12,7 @@ from feedback.event_mapper import SquatEventAggregator
 from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
 from detectors.keypoints_movenet import choose_side, extract_side_keypoints
-from detectors.squat_detector import SquatDetector
+from detectors.squat_detector_manager import SquatDetectorManager
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
 from communication.websocket_server import emit_pose_error, emit_rep_update, start_server
@@ -30,7 +30,7 @@ def main():
     # -----------------------
     # Inicializar SquatDetector
     # -----------------------
-    squat_detector = SquatDetector()
+    detector_manager = SquatDetectorManager(max_clients=6)
 
     # -----------------------
     # Inicializar cámaras con CameraWorker
@@ -81,8 +81,10 @@ def main():
         # for idx, person_kp in enumerate(people_f):
         #     side = choose_side(person_kp)
         #     # side_kp = extract_side_keypoints(person_kp, side)
-        #     result = squat_detector.analyze(person_kp)
-        #     feedback = map_squat_feedback(result)
+        #    detector = detector_manager.get(client_id)
+            # result = detector.analyze(person_kp)
+
+            # events = aggregator.process(client_id, result)
 
         #     draw_feedback(
         #         frame_f,
@@ -108,7 +110,8 @@ def main():
             side = choose_side(person_kp)
             # side_kp = extract_side_keypoints(person_kp, side)
             client_id = str(idx + 1)
-            result = squat_detector.analyze(person_kp)
+            detector = detector_manager.get(client_id)
+            result = detector.analyze(person_kp)
 
             events = aggregator.process(client_id, result)
 

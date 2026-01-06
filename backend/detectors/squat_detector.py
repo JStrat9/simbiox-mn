@@ -1,5 +1,6 @@
 # detectors/squat_detector.py
 
+
 import numpy as np
 from utils.geometry import angle_from_arrays
 from utils.pose_transform import as_point_tuple
