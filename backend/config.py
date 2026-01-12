@@ -35,3 +35,6 @@ KEYPOINT_CONFIDENCE_THRESHOLD = float(os.getenv("KEYPOINT_CONFIDENCE_THRESHOLD",
 # Umbral de repeticiones de error para enviar feedback
 ERROR_REPEAT_THRESHOLD = int(os.getenv("ERROR_REPEAT_THRESHOLD", 2))
 
+# Max number of persons detected by MoveNet
+MAX_PERSONS = int(os.getenv("MAX_PERSONS", 6))
+

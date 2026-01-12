@@ -11,48 +11,48 @@ class SquatEventAggregator:
         self.active_errors = {}
         self.error_hold_frames = error_hold_frames
 
-    def process(self, client_id: str, result: dict) -> list[dict]:
+    def process(self, session_person_id: str, result: dict) -> list[dict]:
         events = []
 
         # --- REP_UPDATE ---
-        prev = self.prev_reps.get(client_id, 0)
+        prev = self.prev_reps.get(session_person_id, 0)
         curr = result.get("reps", 0)
         if curr != prev:
             events.append({
                 "type": "REP_UPDATE",
-                "clientId": client_id,
+                "session_person_id": session_person_id,
                 "reps": curr
             })
-            self.prev_reps[client_id] = curr
+            self.prev_reps[session_person_id] = curr
 
         # --- POSE_ERROR ---
-        if client_id not in self.active_errors:
-            self.active_errors[client_id] = {}
+        if session_person_id not in self.active_errors:
+            self.active_errors[session_person_id] = {}
         
         # current errors on the current frame
         curr_errs = set(result.get("errors", []))
         # previous active errors
-        prev_errs = set(self.active_errors[client_id].keys())
+        prev_errs = set(self.active_errors[session_person_id].keys())
 
         # new errors -> emit
         for err in curr_errs - prev_errs:
             events.append({
                 "type": "POSE_ERROR",
-                "clientId": client_id,
+                "session_person_id": session_person_id,
                 "exercise": "Squat",
                 "errorCode": err
             })
             # Marck errors as active with hold 
-            self.active_errors[client_id][err] = self.error_hold_frames
+            self.active_errors[session_person_id][err] = self.error_hold_frames
         
         # Already active errors -> refresh hold
         for err in curr_errs & prev_errs:
-            self.active_errors[client_id][err] = self.error_hold_frames
+            self.active_errors[session_person_id][err] = self.error_hold_frames
 
         # Decrease hold for active errors
         for err in prev_errs - curr_errs:
-            self.active_errors[client_id][err] -= 1
-            if self.active_errors[client_id][err] <= 0:
-                del self.active_errors[client_id][err]
+            self.active_errors[session_person_id][err] -= 1
+            if self.active_errors[session_person_id][err] <= 0:
+                del self.active_errors[session_person_id][err]
 
         return events

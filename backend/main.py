@@ -21,6 +21,15 @@ from utils.draw_feedback import draw_feedback
 from communication.websocket_server import emit_pose_error, emit_rep_update, start_server
 from tracking.tracker_iou import CentroidTracker
 
+from session.session_person_manager import SessionPersonManager
+from config import MAX_PERSONS
+
+session_manager = SessionPersonManager(
+    max_persons=MAX_PERSONS, 
+    t_active=0.8, t_lost=2.0, 
+    distance_threshold=120.0
+)
+
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
 def get_centroid(keypoints):
@@ -85,7 +94,7 @@ def main():
         #    detector = detector_manager.get(client_id)
             # result = detector.analyze(person_kp)
 
-            # events = aggregator.process(client_id, result)
+            # events = aggregator.process(session_person_id, result)
 
         #     draw_feedback(
         #         frame_f,
@@ -113,17 +122,20 @@ def main():
             centroid = get_centroid(person_kp)
             try:
                 client_id = tracker.get_client_id(centroid)
+                session_person_id = session_manager.resolve_person(client_id, centroid)
             except RuntimeError:
                 # If there are no available IDs, skip this person
                 continue
 
             current_client_ids.add(client_id)
 
-            detector = detector_manager.get(client_id)
+            detector = detector_manager.get(session_person_id)
+            print(f"[SESSION] client_id={client_id} -> session_person_id={session_person_id}")
+
             result = detector.analyze(person_kp)
 
             # --- Process events ---
-            events = aggregator.process(client_id, result)
+            events = aggregator.process(session_person_id, result)
 
             # --- Draw feedback ---
             draw_feedback(
@@ -139,9 +151,9 @@ def main():
             # --- Emit events ---
             for event in events:
                 if event["type"] == "REP_UPDATE":
-                    emit_rep_update(event["clientId"], event["reps"])
+                    emit_rep_update(event["session_person_id"], event["reps"])
                 elif event["type"] == "POSE_ERROR":
-                    emit_pose_error(event["clientId"], event["exercise"], event["errorCode"])
+                    emit_pose_error(event["session_person_id"], event["exercise"], event["errorCode"])
                 # print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
                 # send_error_threadsafe(error_data)
 
