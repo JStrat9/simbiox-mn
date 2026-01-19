@@ -8,6 +8,11 @@ from typing import Dict, Set
 connected_clients: Set[websockets.WebSocketServerProtocol] = set()
 server_loop: asyncio.AbstractEventLoop | None = None
 
+_rotate_station_handler = None
+
+def register_rotate_station_handler(handler):
+    global _rotate_station_handler
+    _rotate_station_handler = handler
 
 # -----------------------------
 # Core WebSocket handler
@@ -21,8 +26,26 @@ async def handler(websocket, path=None):
 
     try:
         async for message in websocket:
-            # Hoy no esperamos mensajes del frontend
             print("[WS] Received from client:", message, flush=True)
+
+            try:
+                msg = json.loads(message)
+            except json.JSONDecodeError:
+                print("[WS][WARN] Invalid JSON", flush=True)
+                continue
+            if msg.get("type") == "ROTATE_STATION":
+                session_person_id = msg.get("session_person_id")
+                station_id = msg.get("station_id")
+
+                if not session_person_id or not station_id:
+                    print("[WS][WARN] ROTATE_STATION missing fields", flush=True)
+                    continue
+
+                if _rotate_station_handler:
+                    _rotate_station_handler(session_person_id, station_id)
+                else:
+                    print("[WS][WARN] No rotate station handler registered", flush=True)
+
     except Exception as e:
         print("[WS] Handler exception:", e, flush=True)
     finally:

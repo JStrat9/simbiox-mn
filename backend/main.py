@@ -1,7 +1,5 @@
 # main.py
 
-# TODO: ENTENDER CÓMO IDENTIFICAR QUÉ CLIENTE ESTÁ HACIENDO QUE EJERCICIO (ESTACIÓN) chatGPT:"identidad funcional dentro de una sesión."
-
 import asyncio
 import cv2
 from queue import Queue
@@ -18,7 +16,12 @@ from detectors.keypoints_movenet import choose_side, extract_side_keypoints
 from detectors.squat_detector_manager import SquatDetectorManager
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
-from communication.websocket_server import emit_pose_error, emit_rep_update, start_server
+from communication.websocket_server import (
+    emit_pose_error, 
+    emit_rep_update, 
+    start_server, 
+    register_rotate_station_handler,
+)
 from tracking.tracker_iou import CentroidTracker
 
 from session.session_person_manager import SessionPersonManager
@@ -29,6 +32,17 @@ session_manager = SessionPersonManager(
     t_active=0.8, t_lost=2.0, 
     distance_threshold=120.0
 )
+
+def on_rotate_station(session_person_id: str, station_id: str):
+    session_manager.assign_station(session_person_id, station_id)
+
+    print(
+        f"[SESSION][ROTATION] "
+        f"{session_person_id} -> {station_id}",
+        flush=True,
+    )
+
+register_rotate_station_handler(on_rotate_station)
 
 from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
@@ -129,24 +143,33 @@ def main():
 
             current_client_ids.add(client_id)
 
-            detector = detector_manager.get(session_person_id)
-            print(f"[SESSION] client_id={client_id} -> session_person_id={session_person_id}")
-
-            result = detector.analyze(person_kp)
-
-            # --- Process events ---
-            events = aggregator.process(session_person_id, result)
-
-            # --- Draw feedback ---
-            draw_feedback(
-                frame_s,
-                reps=result.get("reps", ),
-                error=result["errors"][0] if result.get("errors") else ""
+            station = session_manager.get_station(session_person_id)
+            print(
+                f"[EXERCISE] {session_person_id}"
+                f"station={station.station_id}"
+                f"exercise={station.exercise}"
+                f"reps={station.reps}"
             )
 
-            draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
-            draw_edges(frame_s, person_kp)
-            draw_angles(frame_s, person_kp, result.get("angles", {}), side)
+            if station.exercise == "squat":
+                detector = detector_manager.get(session_person_id)
+                print(f"[SESSION] client_id={client_id} -> session_person_id={session_person_id}")
+
+                result = detector.analyze(person_kp)
+
+                # --- Process events ---
+                events = aggregator.process(session_person_id, result)
+
+                # --- Draw feedback ---
+                draw_feedback(
+                    frame_s,
+                    reps=result.get("reps", ),
+                    error=result["errors"][0] if result.get("errors") else ""
+                )
+
+                draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
+                draw_edges(frame_s, person_kp)
+                draw_angles(frame_s, person_kp, result.get("angles", {}), side)
 
             # --- Emit events ---
             for event in events:

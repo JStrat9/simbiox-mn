@@ -20,8 +20,10 @@ class SessionPerson:
 
         self.state: PersonState = PersonState.ACTIVE
 
-        self.current_station: Optional[str] = None
+        self.current_station: Optional[str] = None # ¿Es necesario, se usa?
         self.active: bool = True
+        self.current_station_id: str | None = None
+
 
 class SessionPersonManager:
     def __init__(
@@ -147,3 +149,13 @@ class SessionPersonManager:
         self.persons[pid] = person
 
         return person
+
+    def assign_station(self, session_person_id: str, station_id: str):
+        """
+        Assign a station to a session person
+        """
+        person = self.persons.get(session_person_id)
+        if not person:
+            return
+        
+        person.current_station_id = station_id
