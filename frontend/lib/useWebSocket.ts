@@ -8,6 +8,18 @@ export function useWebSocket() {
     const updateClient = useClientsStore((s) => s.updateClient);
     const socketRef = useRef<WebSocket | null>(null);
 
+    const send = (data: unknown) => {
+        if (
+            socketRef.current &&
+            socketRef.current.readyState === WebSocket.OPEN
+        ) {
+            socketRef.current.send(JSON.stringify(data));
+            console.log("[WS] Sent message:", data);
+        } else {
+            console.warn("[WS] Cannot send, socket not open")
+        }
+    };
+
     useEffect(() => {
         let reconnectTimeout: NodeJS.Timeout;
 
@@ -50,6 +62,16 @@ export function useWebSocket() {
                             });
                             break;
                         }
+                        case "STATION_UPDATED": {
+                            const { assignments } = msg as {
+                                assignments: Record<string, string>
+                            };
+
+                            Object.entries(assignments).forEach(([id, station]) => {
+                                updateClient(id, { station });
+                            });
+                            break;
+                        }
                         default:
                             console.warn("[WS] Unknown message type:", msg.type);
                     }
@@ -84,4 +106,6 @@ export function useWebSocket() {
             }
         };
     }, [updateClient]);
+
+    return { send }
 }

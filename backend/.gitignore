@@ -9,3 +9,4 @@ backend/models/movenet_multipose/*.tar.gz
 *.tflite
 
 .env
+personal_notes.md

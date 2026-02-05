@@ -1,31 +1,38 @@
-import React, { useState } from "react";
+// components/WorkoutBoard.tsx
+
+import React from "react";
 import WorkoutStationCard from "./WorkoutStationCard";
 import { useWebSocket } from "@/lib/useWebSocket";
+import { useClientsStore } from "@/store/clients";
 
-const athletesBase = [
-    { id: "a1", name: "Joan", avatarUrl: "/joan.jpg" },
-    { id: "a2", name: "Luz", avatarUrl: "/avatars/luz.jpg" },
-    { id: "a3", name: "Gabbi", avatarUrl: "/avatars/gabbi.jpg" },
-    { id: "a4", name: "Sandra", avatarUrl: "/avatars/sandra.jpg" },
-    { id: "a5", name: "Rocío", avatarUrl: "/avatars/rocio.jpg" },
-    { id: "a6", name: "Sele", avatarUrl: "/avatars/sele.jpg" },
-];
 
-const stations = [
-    "Press pecho inclinado",
-    "Dips",
-    "Flexiones + aperturas",
-    "Press pecho",
-    "Tríceps agarre supino",
-    "Patada de tríceps",
-];
+/* ---------------- Mapeos estáticos ---------------- */
+const STATION_MAP: Record<string, string> = {
+    station1: "Press pecho inclinado",
+    station2: "Dips",
+    station3: "Flexiones + aperturas",
+    station4: "Press pecho",
+    station5: "Tríceps agarre supino",
+    station6: "Patada de tríceps",
+};
+
+const ATHLETE_MAP: Record<string, { name: string; avatarUrl: string }> = {
+    athlete_1: { name: "Joan", avatarUrl: "/joan.jpg" },
+    athlete_2: { name: "Luz", avatarUrl: "/avatars/luz.jpg" },
+    athlete_3: { name: "Gabbi", avatarUrl: "/avatars/gabbi.jpg" },
+    athlete_4: { name: "Sandra", avatarUrl: "/avatars/sandra.jpg" },
+    athlete_5: { name: "Rocío", avatarUrl: "/avatars/rocio.jpg" },
+    athlete_6: { name: "Sele", avatarUrl: "/avatars/sele.jpg" },
+};
 
 const WorkoutBoard: React.FC = () => {
-    const [rotationIndex, setRotationIndex] = useState(0);
-    useWebSocket();
+    const clients = useClientsStore((s) => s.clients);
+    const { send } = useWebSocket();
 
     const nextRotation = () => {
-        setRotationIndex((prev) => (prev + 1) % athletesBase.length);
+        send({
+            type: "ROTATE_STATIONS"
+        });
     };
 
     return (
@@ -44,24 +51,27 @@ const WorkoutBoard: React.FC = () => {
 
             {/* Estaciones */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {stations.map((exercise, stationIndex) => {
-                    const athletesForStation = athletesBase.map(
-                        (athlete, index) => ({
-                            ...athlete,
-                            weight: getSimulatedWeight(athlete.name, exercise),
-                            maxReps: getSimulatedReps(),
-                            isActive:
-                                index ===
-                                (stationIndex + rotationIndex) %
-                                    athletesBase.length,
-                        })
-                    );
+                {Object.entries(STATION_MAP).map(([stationKey, stationName]) => {
+                    const athletesForStation = Object.entries(clients)
+                        .filter(([_, client]) => client.station === stationKey)
+                        .map(([id, client]) => {
+                            const meta = ATHLETE_MAP[id];
+                            return {
+                                id,
+                                name: meta?.name || "Unknown",
+                                avatarUrl: meta?.avatarUrl || "",
+                                weight: 0,
+                                maxReps: client.reps,
+                                isActive: true,
+                                currentErrors: client.currentErrors,
+                            };
+                        });
 
                     return (
                         <WorkoutStationCard
-                            key={exercise}
-                            stationNumber={stationIndex + 1}
-                            exerciseName={exercise}
+                            key={stationKey}
+                            stationNumber={parseInt(stationKey.replace("station", ""), 10)}
+                            exerciseName={stationName}
                             athletes={athletesForStation}
                         />
                     );
@@ -95,7 +105,7 @@ function getSimulatedWeight(name: string, exercise: string) {
 }
 
 function getSimulatedReps() {
-    return Math.floor(Math.random() * 6) + 10; // 10–15 reps
+    return 0;
 }
 
 export default WorkoutBoard;

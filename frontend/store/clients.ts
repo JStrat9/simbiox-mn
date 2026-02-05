@@ -6,6 +6,7 @@ type ClientState = {
     reps: number;
     exercise: string;
     currentErrors: string[];
+    station?: string;
 };
 
 type ClientsStore = {
@@ -20,35 +21,35 @@ type WSMessage =
 
 export const useClientsStore = create<ClientsStore>((set) => ({
     clients: {
-        "1": {
-            reps: 4,
+        "athlete_1": {
+            reps: 0,
             exercise: "Sentadillas",
-            currentErrors: ["Espalda encorvada"],
+            currentErrors: [],
         },
-        "2": {
-            reps: 7,
+        "athlete_2": {
+            reps: 0,
             exercise: "Sentadillas",
-            currentErrors: ["Baja poco"],
+            currentErrors: [],
         },
-        "3": {
-            reps: 2,
+        "athlete_3": {
+            reps: 0,
             exercise: "Sentadillas",
-            currentErrors: ["Rodillas adelantadas"],
+            currentErrors: [],
         },
-        "4": {
-            reps: 4,
+        "athlete_4": {
+            reps: 0,
             exercise: "Sentadillas",
-            currentErrors: ["Espalda encorvada"],
+            currentErrors: [],
         },
-        "5": {
-            reps: 7,
+        "athlete_5": {
+            reps: 0,
             exercise: "Sentadillas",
-            currentErrors: ["Baja poco"],
+            currentErrors: [],
         },
-        "6": {
-            reps: 2,
+        "athlete_6": {
+            reps: 0,
             exercise: "Sentadillas",
-            currentErrors: ["Rodillas adelantadas"],
+            currentErrors: [],
         },
     },
     updateClient: (id, data) => set((state) => {

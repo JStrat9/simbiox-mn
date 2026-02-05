@@ -6,4 +6,5 @@ from dataclasses import dataclass
 class Station:
     station_id: str
     exercise: str
+    reps: int = 0
     

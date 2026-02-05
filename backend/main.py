@@ -1,5 +1,10 @@
 # main.py
 
+# TODO CONTINUAR CON CHATGPT "Verificación manual que debes hacer ahora"
+    # Rotar estación sin persona en cámara
+    # Rotar estación mientras se ejecuta squat
+    # Rotar ida y vuelta (A → B → A)
+
 import asyncio
 import cv2
 from queue import Queue
@@ -24,14 +29,17 @@ from communication.websocket_server import (
 )
 from tracking.tracker_iou import CentroidTracker
 
+from session.session_state import SessionState
 from session.session_person_manager import SessionPersonManager
 from config import MAX_PERSONS
 
+session_state = SessionState()
 session_manager = SessionPersonManager(
     max_persons=MAX_PERSONS, 
     t_active=0.8, t_lost=2.0, 
     distance_threshold=120.0
 )
+session_manager.session_state = session_state
 
 def on_rotate_station(session_person_id: str, station_id: str):
     session_manager.assign_station(session_person_id, station_id)

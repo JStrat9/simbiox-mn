@@ -3,12 +3,18 @@
 import asyncio
 import websockets
 import json
+
 from typing import Dict, Set
+from session.session_state import SessionState
+from session.rotation import rotate_stations
+
 
 connected_clients: Set[websockets.WebSocketServerProtocol] = set()
 server_loop: asyncio.AbstractEventLoop | None = None
 
 _rotate_station_handler = None
+
+session_state = SessionState()
 
 def register_rotate_station_handler(handler):
     global _rotate_station_handler
@@ -24,6 +30,12 @@ async def handler(websocket, path=None):
     )
     connected_clients.add(websocket)
 
+    await websocket.send(json.dumps({
+        "type": "STATION_UPDATED",
+        "assignments": session_state.assignments,
+        "rotation": session_state.rotation_index
+    }))
+
     try:
         async for message in websocket:
             print("[WS] Received from client:", message, flush=True)
@@ -33,18 +45,16 @@ async def handler(websocket, path=None):
             except json.JSONDecodeError:
                 print("[WS][WARN] Invalid JSON", flush=True)
                 continue
-            if msg.get("type") == "ROTATE_STATION":
-                session_person_id = msg.get("session_person_id")
-                station_id = msg.get("station_id")
+            if msg.get("type") == "ROTATE_STATIONS":
+                new_assignments = rotate_stations(session_state)
+                print("[DEBUG ROTATE STATIONS]New assignments:", new_assignments, flush=True)
 
-                if not session_person_id or not station_id:
-                    print("[WS][WARN] ROTATE_STATION missing fields", flush=True)
-                    continue
-
-                if _rotate_station_handler:
-                    _rotate_station_handler(session_person_id, station_id)
-                else:
-                    print("[WS][WARN] No rotate station handler registered", flush=True)
+                # Emit update assignments to all clients
+                await broadcast({
+                    "type": "STATION_UPDATED",
+                    "assignments": new_assignments,
+                    "rotation": session_state.rotation_index
+                })
 
     except Exception as e:
         print("[WS] Handler exception:", e, flush=True)

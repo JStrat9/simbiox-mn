@@ -4,6 +4,10 @@ import time
 import numpy as np
 from typing import Dict, Optional
 from enum import Enum
+from .station import Station
+from .session_state import SessionState
+
+ALLOWED_IDS = [f"athlete_{i}" for i in range(1, 7)]
 
 class PersonState(Enum):
     ACTIVE = "active"
@@ -13,19 +17,23 @@ class PersonState(Enum):
 class SessionPerson:
     def __init__(self, session_person_id: str):
         self.session_person_id = session_person_id
-
         self.last_client_id: Optional[str] = None
         self.last_client_centroid: Optional[np.ndarray] = None
         self.last_seen_ts: float = time.time()
-
         self.state: PersonState = PersonState.ACTIVE
-
-        self.current_station: Optional[str] = None # ¿Es necesario, se usa?
         self.active: bool = True
         self.current_station_id: str | None = None
 
 
 class SessionPersonManager:
+    STATION_MAP: Dict[str, str] = {
+        "station1": "squat",
+        "station2": "pushup",
+        "station3": "pullup",
+        "station4": "lunges",
+        "station5": "plank",
+        "station6": "jumping_jack",
+    }
     def __init__(
         self, 
         max_persons: int,
@@ -39,14 +47,15 @@ class SessionPersonManager:
             self.reassignment_timeout = reassignment_timeout
             self.t_lost = t_lost
             self.distance_threshold = distance_threshold
+            self.session_state: SessionState | None = None
 
             self.persons: Dict[str, SessionPerson] = {}
             self.next_person_id = 1
 
+    # ----------------- Person State Management -----------------
     def _update_state(self, now: float):
         for person in self.persons.values():
             dt = now - person.last_seen_ts
-
             if dt <= self.t_active:
                 person.state = PersonState.ACTIVE
             elif dt <= self.t_lost:
@@ -54,16 +63,14 @@ class SessionPersonManager:
             else:
                 person.state = PersonState.INACTIVE
 
-    # ------------ public API ------------
+    # ------------ Public API ------------
     def resolve_person(self, client_id: str, centroid: np.ndarray) -> str:
         """
         Decide wich session_person_id does this client_id belong to
         """
 
         now = time.time()
-
         self._update_state(now)
-
         # Try reassignation
         person = self._find_reassignable_person(centroid, now)
 
@@ -110,9 +117,7 @@ class SessionPersonManager:
 
         for person in self.persons.values():
             dt = now - person.last_seen_ts
-            if dt > self.reassignment_timeout:
-                continue
-            if person.last_client_centroid is None:
+            if dt > self.reassignment_timeout or person.last_client_centroid is None:
                 continue
 
             dist = np.linalg.norm(centroid - person.last_client_centroid)
@@ -137,19 +142,24 @@ class SessionPersonManager:
         if len(self.persons) >= self.max_persons:
             raise RuntimeError("Maximum number of persons reached")
         
-        pid = f"person{self.next_person_id}"
-        self.next_person_id += 1
+        # Buscar un ID libre
+        used_ids = {p.session_person_id for p in self.persons.values() if p.state != PersonState.INACTIVE}
+        available_ids = [aid for aid in ALLOWED_IDS if aid not in used_ids]
+
+        if not available_ids:
+            raise RuntimeError("No available athlete IDs")
+
+        pid = available_ids[0]  # asignar el primer disponible
 
         person = SessionPerson(pid)
         person.last_client_id = client_id
         person.last_client_centroid = centroid
         person.last_seen_ts = time.time()
         person.state = PersonState.ACTIVE
-
         self.persons[pid] = person
-
         return person
 
+    # TODO: Comprobar si valida estado previo, evita reasignación, controla colisiones
     def assign_station(self, session_person_id: str, station_id: str):
         """
         Assign a station to a session person
@@ -157,5 +167,30 @@ class SessionPersonManager:
         person = self.persons.get(session_person_id)
         if not person:
             return
-        
         person.current_station_id = station_id
+
+    def get_station(self, session_person_id: str) -> Station:
+        """Return the Station object for a session person"""
+        person = self.persons.get(session_person_id)
+        if not person:
+            # fallback dummy
+            return Station(station_id="station1", exercise="squat", reps=0)
+
+        station_id = person.current_station_id
+        if not station_id and self.session_state:
+            # Lookup from session_state assignments
+            for sid, assigned_station in self.session_state.assignments.items():
+                if sid == session_person_id:
+                    station_id = assigned_station
+                    break
+
+        if not station_id:
+            station_id = "station1"  # fallback
+
+        exercise = self.STATION_MAP.get(station_id, "squat")
+        # Optional: use session_state for reps tracking, or default to 0
+        reps = 0
+        if self.session_state and session_person_id in self.session_state.reps:
+            reps = self.session_state.reps[session_person_id]
+
+        return Station(station_id=station_id, exercise=exercise, reps=reps)
