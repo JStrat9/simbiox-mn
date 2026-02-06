@@ -7,3 +7,4 @@ node_modules/
 # MoveNet TFLite model
 backend/models/movenet_multipose/
 backend/models/movenet_multipose/
+personal_notes.md

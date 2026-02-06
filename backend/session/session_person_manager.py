@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from enum import Enum
 from .station import Station
 from .session_state import SessionState
+from .station import Station
 
 ALLOWED_IDS = [f"athlete_{i}" for i in range(1, 7)]
 
@@ -23,17 +24,10 @@ class SessionPerson:
         self.state: PersonState = PersonState.ACTIVE
         self.active: bool = True
         self.current_station_id: str | None = None
+        self.session_state: SessionState | None = None
 
 
 class SessionPersonManager:
-    STATION_MAP: Dict[str, str] = {
-        "station1": "squat",
-        "station2": "pushup",
-        "station3": "pullup",
-        "station4": "lunges",
-        "station5": "plank",
-        "station6": "jumping_jack",
-    }
     def __init__(
         self, 
         max_persons: int,
@@ -50,7 +44,7 @@ class SessionPersonManager:
             self.session_state: SessionState | None = None
 
             self.persons: Dict[str, SessionPerson] = {}
-            self.next_person_id = 1
+            # self.next_person_id = 1
 
     # ----------------- Person State Management -----------------
     def _update_state(self, now: float):
@@ -71,9 +65,9 @@ class SessionPersonManager:
 
         now = time.time()
         self._update_state(now)
+
         # Try reassignation
         person = self._find_reassignable_person(centroid, now)
-
         if person:
             old_client_id = person.last_client_id
             person.last_client_id = client_id
@@ -136,11 +130,15 @@ class SessionPersonManager:
 
     def _create_new_person(self, client_id: str, centroid: np.ndarray) -> SessionPerson:
         """
-        Create a new session person
+        Create a new session person using allowed athlete IDs and
+        link them to their assigned station from session_state.
         """
 
         if len(self.persons) >= self.max_persons:
             raise RuntimeError("Maximum number of persons reached")
+        
+        if not self.session_state:
+            raise RuntimeError("SessionState not set in SessionPersonManager")
         
         # Buscar un ID libre
         used_ids = {p.session_person_id for p in self.persons.values() if p.state != PersonState.INACTIVE}
@@ -156,18 +154,22 @@ class SessionPersonManager:
         person.last_client_centroid = centroid
         person.last_seen_ts = time.time()
         person.state = PersonState.ACTIVE
+        person.current_station_id = self.session_state.assignments.get(pid, "station1")
         self.persons[pid] = person
         return person
 
     # TODO: Comprobar si valida estado previo, evita reasignación, controla colisiones
     def assign_station(self, session_person_id: str, station_id: str):
         """
-        Assign a station to a session person
+        Assign a station to a session person and update session_state assignments.
         """
         person = self.persons.get(session_person_id)
         if not person:
             return
         person.current_station_id = station_id
+
+        if self.session_state:
+            self.session_state.assignments[session_person_id] = station_id
 
     def get_station(self, session_person_id: str) -> Station:
         """Return the Station object for a session person"""
@@ -178,16 +180,12 @@ class SessionPersonManager:
 
         station_id = person.current_station_id
         if not station_id and self.session_state:
-            # Lookup from session_state assignments
-            for sid, assigned_station in self.session_state.assignments.items():
-                if sid == session_person_id:
-                    station_id = assigned_station
-                    break
+            station_id = self.session_state.assignments.get(session_person_id, "station1")
 
-        if not station_id:
-            station_id = "station1"  # fallback
-
-        exercise = self.STATION_MAP.get(station_id, "squat")
+        exercise = (
+            self.session_state.station_map.get(station_id, "squat") 
+            if self.session_state else "squat"
+        )
         # Optional: use session_state for reps tracking, or default to 0
         reps = 0
         if self.session_state and session_person_id in self.session_state.reps:

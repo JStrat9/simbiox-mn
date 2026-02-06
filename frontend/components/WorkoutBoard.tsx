@@ -5,7 +5,6 @@ import WorkoutStationCard from "./WorkoutStationCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useClientsStore } from "@/store/clients";
 
-
 /* ---------------- Mapeos estáticos ---------------- */
 const STATION_MAP: Record<string, string> = {
     station1: "Press pecho inclinado",
@@ -31,7 +30,7 @@ const WorkoutBoard: React.FC = () => {
 
     const nextRotation = () => {
         send({
-            type: "ROTATE_STATIONS"
+            type: "ROTATE_STATIONS",
         });
     };
 
@@ -51,61 +50,41 @@ const WorkoutBoard: React.FC = () => {
 
             {/* Estaciones */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {Object.entries(STATION_MAP).map(([stationKey, stationName]) => {
-                    const athletesForStation = Object.entries(clients)
-                        .filter(([_, client]) => client.station === stationKey)
-                        .map(([id, client]) => {
-                            const meta = ATHLETE_MAP[id];
-                            return {
-                                id,
-                                name: meta?.name || "Unknown",
-                                avatarUrl: meta?.avatarUrl || "",
-                                weight: 0,
-                                maxReps: client.reps,
-                                isActive: true,
-                                currentErrors: client.currentErrors,
-                            };
-                        });
+                {Object.entries(STATION_MAP).map(
+                    ([stationKey, stationName]) => {
+                        const athletesForStation = Object.entries(clients)
+                            .filter(
+                                ([_, client]) => client.station === stationKey,
+                            )
+                            .map(([id, client]) => {
+                                const meta = ATHLETE_MAP[id];
+                                return {
+                                    id,
+                                    name: meta?.name || "Unknown",
+                                    avatarUrl: meta?.avatarUrl || "",
+                                    weight: 0,
+                                    maxReps: client.reps,
+                                    isActive: true,
+                                    currentErrors: client.currentErrors,
+                                };
+                            });
 
-                    return (
-                        <WorkoutStationCard
-                            key={stationKey}
-                            stationNumber={parseInt(stationKey.replace("station", ""), 10)}
-                            exerciseName={stationName}
-                            athletes={athletesForStation}
-                        />
-                    );
-                })}
+                        return (
+                            <WorkoutStationCard
+                                key={stationKey}
+                                stationNumber={parseInt(
+                                    stationKey.replace("station", ""),
+                                    10,
+                                )}
+                                exerciseName={stationName}
+                                athletes={athletesForStation}
+                            />
+                        );
+                    },
+                )}
             </div>
         </div>
     );
 };
-
-/* ---------------- Simulación realista ---------------- */
-
-function getSimulatedWeight(name: string, exercise: string) {
-    const baseWeights: Record<string, number> = {
-        Joan: 3.75,
-        Luz: 6.25,
-        Gabbi: 2.5,
-        Sandra: 3.75,
-        Rocío: 5,
-        Sele: 15,
-    };
-
-    const multiplier = exercise.includes("Press")
-        ? 1
-        : exercise.includes("Tríceps")
-        ? 1.4
-        : exercise.includes("Dips")
-        ? 0.8
-        : 1;
-
-    return Math.round(baseWeights[name] * multiplier * 4) / 4;
-}
-
-function getSimulatedReps() {
-    return 0;
-}
 
 export default WorkoutBoard;
