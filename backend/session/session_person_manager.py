@@ -158,7 +158,6 @@ class SessionPersonManager:
         self.persons[pid] = person
         return person
 
-    # TODO: Comprobar si valida estado previo, evita reasignación, controla colisiones
     def assign_station(self, session_person_id: str, station_id: str):
         """
         Assign a station to a session person and update session_state assignments.

@@ -70,6 +70,18 @@ async def handler(websocket, path=None):
 # Event emitters (DOMAIN EVENTS)
 # -----------------------------
 async def broadcast(event: Dict):
+    """
+    Broadcasts a message to all connected clients.
+
+    Args:
+        event (Dict): The event to broadcast.
+
+    Returns:
+        None
+
+    Raises:
+        None
+    """
     if not connected_clients:
         print("[WS] No connected clients, skipping broadcast", flush=True)
         return

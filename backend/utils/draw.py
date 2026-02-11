@@ -1,8 +1,5 @@
 # utils/drawing.py
 
-# TODO: DIBUAJAR KEYPOINTS EN ARTICULACIONES PARA MEJOR VISUALIZACIÓN
-# TODO: ¿DEBERÍA COMPROBAR VISIBILIDAD EJ: shoulder_visibility = landmarks.landmark[mp_pose.PoseLandmark.LEFT_SHOULDER.value].visibility
-
 import cv2
 import numpy as np
 
