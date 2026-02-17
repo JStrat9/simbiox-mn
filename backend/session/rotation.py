@@ -1,6 +1,9 @@
 # rotation.py
 
+import time
+
 from session.session_state import SessionState
+
 
 def rotate_stations(session: SessionState):
     order = session.station_order
@@ -11,7 +14,10 @@ def rotate_stations(session: SessionState):
         next_station = order[(idx + 1) % len(order)]
         new_assignments[athlete_id] = next_station
 
-    session.assignments = new_assignments
-    session.rotation_index += 1
+    if new_assignments != session.assignments:
+        session.assignments = new_assignments
+        session.rotation_index += 1
+        session.updated_at = int(time.time())
+        session.version += 1
 
-    return new_assignments 
+    return session.assignments

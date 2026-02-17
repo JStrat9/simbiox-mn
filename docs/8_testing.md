@@ -1,9 +1,11 @@
 # 8️⃣ Testing
 
-## 8.1 Estrategia de testing
+## PR1 – Validaciones
 
-- Unit tests
-- Integration tests
-- End-to-end
+    - Parseo sintáctico validado con ast.parse.
+    - No hay cambios en contratos WS.
+    - No se requieren cambios en frontend.
+    - Se mantiene compatibilidad total con Fase 0.
 
-## 8.2 Cobertura actual
+Nota:
+La validación funcional completa vendrá en PR2 y PR4 (tests de versionado y snapshot).

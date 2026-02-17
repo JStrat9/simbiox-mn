@@ -1,9 +1,9 @@
 # main.py
 
 # TODO CONTINUAR CON CHATGPT "Verificación manual que debes hacer ahora"
-    # Rotar estación sin persona en cámara
-    # Rotar estación mientras se ejecuta squat
-    # Rotar ida y vuelta (A → B → A)
+# Rotar estación sin persona en cámara
+# Rotar estación mientras se ejecuta squat
+# Rotar ida y vuelta (A -> B -> A)
 
 import asyncio
 import cv2
@@ -22,27 +22,36 @@ from detectors.squat_detector_manager import SquatDetectorManager
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
 from communication.websocket_server import (
-    emit_pose_error, 
-    emit_rep_update, 
-    start_server, 
+    emit_pose_error,
+    emit_rep_update,
+    start_server,
     register_rotate_station_handler,
 )
 from tracking.tracker_iou import CentroidTracker
 
 from session.session_state import SessionState
 from session.session_person_manager import SessionPersonManager
-from config import MAX_PERSONS
+from config import (
+    MAX_PERSONS,
+    CAMERA_FRONT_URL,
+    CAMERA_SIDE_URL,
+    MOVENET_TFLITE_MODEL,
+    WS_ENABLE_SESSION_UPDATE,
+)
 
 session_state = SessionState()
 session_manager = SessionPersonManager(
-    max_persons=MAX_PERSONS, 
-    t_active=0.8, t_lost=2.0, 
-    distance_threshold=120.0
+    max_persons=MAX_PERSONS,
+    t_active=0.8,
+    t_lost=2.0,
+    distance_threshold=120.0,
 )
 session_manager.session_state = session_state
 
+
 def on_rotate_station(session_person_id: str, station_id: str):
     session_manager.assign_station(session_person_id, station_id)
+    session_state.set_assignment(session_person_id, station_id)
 
     print(
         f"[SESSION][ROTATION] "
@@ -50,20 +59,38 @@ def on_rotate_station(session_person_id: str, station_id: str):
         flush=True,
     )
 
+
 register_rotate_station_handler(on_rotate_station)
 
-from config import CAMERA_FRONT_URL, CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
 
 def get_centroid(keypoints):
-    visible = [kp[:2] for kp in keypoints if kp[2] > 0.1] # kp = (x, y, score)
+    visible = [kp[:2] for kp in keypoints if kp[2] > 0.1]  # kp = (x, y, score)
     if not visible:
         return np.array([0, 0])
     return np.mean(visible, axis=0)
 
 
+def sync_session_state_for_person(
+    session_person_id: str,
+    station_id: str,
+    result: dict,
+    is_squat_station: bool,
+):
+    session_state.set_assignment(session_person_id, station_id)
+
+    if not is_squat_station:
+        session_state.set_errors(session_person_id, [])
+        return
+
+    if result.get("valid"):
+        session_state.set_reps(session_person_id, result.get("reps", 0))
+        session_state.set_errors(session_person_id, result.get("errors", []))
+
+
 def main():
     # Inicializar MoveNet
     print("[INFO] Cargando MoveNet...")
+    print(f"[CONFIG] WS_ENABLE_SESSION_UPDATE={WS_ENABLE_SESSION_UPDATE}")
     movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
 
     detector_manager = SquatDetectorManager(max_clients=6)
@@ -72,12 +99,12 @@ def main():
     side_queue = Queue(maxsize=1)
 
     # front_cam = CameraWorker(CAMERA_FRONT_URL, front_queue, name="Front")
-    side_cam  = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
+    side_cam = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
 
     # front_cam.start()
     side_cam.start()
 
-    palette = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (255,0,255)]
+    palette = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255)]
 
     # Variables de performance
     process = psutil.Process(os.getpid())
@@ -91,8 +118,8 @@ def main():
 
     while True:
         # Obtener frames
-        # if front_queue.empty() or side_queue.empty(): (CAMBIAR LINEA INFERIRO POR ESTA PARA DOS CAMARAS)
-        if  side_queue.empty():
+        # if front_queue.empty() or side_queue.empty(): (CAMBIAR LINEA INFERIOR POR ESTA PARA DOS CAMARAS)
+        if side_queue.empty():
             time.sleep(0.001)
             continue
 
@@ -114,28 +141,28 @@ def main():
         #     side = choose_side(person_kp)
         #     # side_kp = extract_side_keypoints(person_kp, side)
         #    detector = detector_manager.get(client_id)
-            # result = detector.analyze(person_kp)
+        # result = detector.analyze(person_kp)
 
-            # events = aggregator.process(session_person_id, result)
+        # events = aggregator.process(session_person_id, result)
 
-        #     draw_feedback(
-        #         frame_f,
-        #         reps=feedback["reps"],
-        #         error=feedback["error"]
-        #     )
+        # draw_feedback(
+        #     frame_f,
+        #     reps=feedback["reps"],
+        #     error=feedback["error"]
+        # )
 
         # if result["feedback"]:
         #     error_data = {
         #         "reps": result["reps"],
         #         "feedback": result["feedback"],
-        # "angles": result["angles"]
+        #         "angles": result["angles"]
         #     }
         # send_error_threadsafe(error_data)
 
-        #     print(f"[FRONT] Persona {idx}: lado={side}, resultado={result}")
+        # print(f"[FRONT] Persona {idx}: lado={side}, resultado={result}")
 
-        #     draw_keypoints(frame_f, person_kp, color=palette[idx % len(palette)])
-        #     draw_edges(frame_f, person_kp)
+        # draw_keypoints(frame_f, person_kp, color=palette[idx % len(palette)])
+        # draw_edges(frame_f, person_kp)
         # draw_angles(frame_f, person_kp, result["angles"], side)
 
         for idx, person_kp in enumerate(people_s):
@@ -153,11 +180,19 @@ def main():
 
             station = session_manager.get_station(session_person_id)
             print(
-                f"[EXERCISE] {session_person_id}"
-                f"station={station.station_id}"
-                f"exercise={station.exercise}"
+                f"[EXERCISE] {session_person_id} "
+                f"station={station.station_id} "
+                f"exercise={station.exercise} "
                 f"reps={station.reps}"
             )
+
+            events = []
+            result = {
+                "valid": True,
+                "reps": session_state.reps.get(session_person_id, 0),
+                "errors": [],
+                "angles": {},
+            }
 
             if station.exercise == "squat":
                 detector = detector_manager.get(session_person_id)
@@ -166,27 +201,38 @@ def main():
                 result = detector.analyze(person_kp)
 
                 # --- Process events ---
-                events = aggregator.process(session_person_id, result)
+                if result.get("valid"):
+                    events = aggregator.process(session_person_id, result)
 
                 # --- Draw feedback ---
                 draw_feedback(
                     frame_s,
-                    reps=result.get("reps", ),
-                    error=result["errors"][0] if result.get("errors") else ""
+                    reps=result.get("reps"),
+                    error=result["errors"][0] if result.get("errors") else "",
                 )
 
                 draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
                 draw_edges(frame_s, person_kp)
                 draw_angles(frame_s, person_kp, result.get("angles", {}), side)
 
+            sync_session_state_for_person(
+                session_person_id=session_person_id,
+                station_id=station.station_id,
+                result=result,
+                is_squat_station=(station.exercise == "squat"),
+            )
+
             # --- Emit events ---
             for event in events:
                 if event["type"] == "REP_UPDATE":
+                    session_state.set_reps(event["session_person_id"], event["reps"])
                     emit_rep_update(event["session_person_id"], event["reps"])
                 elif event["type"] == "POSE_ERROR":
-                    emit_pose_error(event["session_person_id"], event["exercise"], event["errorCode"])
-                # print(f"[MAIN] Envaindo error a WebSocket: {error_data}", flush=True)
-                # send_error_threadsafe(error_data)
+                    emit_pose_error(
+                        event["session_person_id"],
+                        event["exercise"],
+                        event["errorCode"],
+                    )
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 
@@ -227,6 +273,7 @@ if __name__ == "__main__":
 
     def run_ws_server():
         asyncio.run(start_server(ready_event=ws_ready_event))
+
     # WebSocket server thread
     ws_thread = threading.Thread(target=run_ws_server, daemon=True)
     ws_thread.start()
@@ -235,7 +282,7 @@ if __name__ == "__main__":
     print("[INFO] Esperando a que el servidor WebSocket esté listo...")
     ws_ready_event.wait(timeout=5.0)
     print("[INFO] Servidor WebSocket listo!")
-    
+
     # Pequeña pausa adicional para asegurar que todo está inicializado
     time.sleep(0.5)
 
