@@ -46,5 +46,9 @@ ERROR_REPEAT_THRESHOLD = int(os.getenv("ERROR_REPEAT_THRESHOLD", 2))
 # Max number of persons detected by MoveNet
 MAX_PERSONS = int(os.getenv("MAX_PERSONS", 6))
 
-# Phase 1 feature flag (double emission support)
-WS_ENABLE_SESSION_UPDATE = _env_bool("WS_ENABLE_SESSION_UPDATE", False)
+# Legacy compatibility flag for partial WS events (Phase 0/1 behavior).
+WS_ENABLE_PARTIAL_EVENTS = _env_bool("WS_ENABLE_PARTIAL_EVENTS", True)
+
+# Deprecated: SESSION_UPDATE is now always active as canonical snapshot.
+# This variable is kept only for temporary config backward compatibility.
+WS_ENABLE_SESSION_UPDATE = _env_bool("WS_ENABLE_SESSION_UPDATE", True)

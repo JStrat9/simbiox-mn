@@ -38,7 +38,7 @@ from config import (
     CAMERA_FRONT_URL,
     CAMERA_SIDE_URL,
     MOVENET_TFLITE_MODEL,
-    WS_ENABLE_SESSION_UPDATE,
+    WS_ENABLE_PARTIAL_EVENTS,
 )
 
 session_state = SessionState()
@@ -124,7 +124,11 @@ def sync_session_state_for_person(
 def main():
     # Inicializar MoveNet
     print("[INFO] Cargando MoveNet...")
-    print(f"[CONFIG] WS_ENABLE_SESSION_UPDATE={WS_ENABLE_SESSION_UPDATE}")
+    print(f"[CONFIG] WS_ENABLE_PARTIAL_EVENTS={WS_ENABLE_PARTIAL_EVENTS}")
+    print(
+        "[CONFIG] WS_ENABLE_SESSION_UPDATE is deprecated; "
+        "SESSION_UPDATE canonical emission is always on."
+    )
     movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
 
     detector_manager = SquatDetectorManager(max_clients=6)
@@ -260,19 +264,20 @@ def main():
             frame_state_changed = frame_state_changed or person_changed
 
             # --- Emit events (MVP fallback kept for Phase 1) ---
-            for event in events:
-                if event["type"] == "REP_UPDATE":
-                    emit_rep_update(event["session_person_id"], event["reps"])
-                elif event["type"] == "POSE_ERROR":
-                    emit_pose_error(
-                        event["session_person_id"],
-                        event["exercise"],
-                        event["errorCode"],
-                    )
+            if WS_ENABLE_PARTIAL_EVENTS:
+                for event in events:
+                    if event["type"] == "REP_UPDATE":
+                        emit_rep_update(event["session_person_id"], event["reps"])
+                    elif event["type"] == "POSE_ERROR":
+                        emit_pose_error(
+                            event["session_person_id"],
+                            event["exercise"],
+                            event["errorCode"],
+                        )
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 
-        if WS_ENABLE_SESSION_UPDATE and frame_state_changed:
+        if frame_state_changed:
             emit_session_update()
 
         # --- Release missing clients ---

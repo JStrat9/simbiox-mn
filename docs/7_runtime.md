@@ -2,12 +2,14 @@
 
 ## 7.1 Estado actual de ejecución
 
-Sistema activo en **Fase 1 (doble emisión)** controlada por flag:
+Sistema activo en **modo de corte progresivo**:
 
-- `WS_ENABLE_SESSION_UPDATE=false`:
-  - Solo eventos parciales (comportamiento Fase 0).
-- `WS_ENABLE_SESSION_UPDATE=true`:
-  - Eventos parciales + snapshot `SESSION_UPDATE`.
+- `SESSION_UPDATE` es emisión canónica siempre activa.
+- `WS_ENABLE_PARTIAL_EVENTS=true`:
+  - se mantienen parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED`) por compatibilidad temporal.
+- `WS_ENABLE_PARTIAL_EVENTS=false`:
+  - solo `SESSION_UPDATE` para sincronización de sesión.
+- `WS_ENABLE_SESSION_UPDATE` queda deprecado (sin efecto en emisión canónica).
 
 ## 7.2 Flujo principal en tiempo real
 
@@ -20,21 +22,25 @@ Sistema activo en **Fase 1 (doble emisión)** controlada por flag:
    - reps,
    - errores.
 6. Emisión al frontend:
-   - siempre: parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED` en rotación),
-   - si flag activo y hubo cambio observable: `SESSION_UPDATE`.
+   - siempre: `SESSION_UPDATE` en conexión inicial, rotación y cambio observable,
+   - opcional por compatibilidad: parciales si `WS_ENABLE_PARTIAL_EVENTS=true`.
 
 ## 7.3 Eventos emitidos por fase
 
-### Fase 0 (`WS_ENABLE_SESSION_UPDATE=false`)
+### Compatibilidad ON (`WS_ENABLE_PARTIAL_EVENTS=true`)
 
-- `REP_UPDATE`
-- `POSE_ERROR`
-- `STATION_UPDATED`
+- Se mantienen los 3 eventos parciales (fallback legacy):
+  - `REP_UPDATE`
+  - `POSE_ERROR`
+  - `STATION_UPDATED`
+- Además se emite `SESSION_UPDATE` canónico en:
+  1. conexión inicial de cliente,
+  2. rotación de estaciones,
+  3. cambios observables en frame (reps/errores/asignaciones).
 
-### Fase 1 (`WS_ENABLE_SESSION_UPDATE=true`)
+### Compatibilidad OFF (`WS_ENABLE_PARTIAL_EVENTS=false`)
 
-- Se mantienen los 3 eventos parciales (fallback).
-- Además se emite `SESSION_UPDATE` en:
+- Se emite exclusivamente `SESSION_UPDATE` en los mismos tres puntos:
   1. conexión inicial de cliente,
   2. rotación de estaciones,
   3. cambios observables en frame (reps/errores/asignaciones).
@@ -58,7 +64,8 @@ Casos sin incremento:
 
 Nota:
 
-- `WS_ENABLE_SESSION_UPDATE` controla emisión de snapshot WS, no el mantenimiento interno de versionado canónico.
+- `WS_ENABLE_SESSION_UPDATE` está deprecado.
+- El flag operativo de transición es `WS_ENABLE_PARTIAL_EVENTS` (solo compatibilidad legacy).
 
 ## 7.5 Comportamiento frontend en Fase 1
 

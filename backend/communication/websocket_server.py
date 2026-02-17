@@ -7,7 +7,7 @@ import websockets
 
 from typing import Dict, Set
 
-from config import WS_ENABLE_SESSION_UPDATE
+from config import WS_ENABLE_PARTIAL_EVENTS
 from session.rotation import rotate_stations
 from session.session_snapshot import build_session_update
 from session.session_state import SessionState
@@ -40,18 +40,18 @@ async def handler(websocket, path=None):
     )
     connected_clients.add(websocket)
 
-    await websocket.send(
-        json.dumps(
-            {
-                "type": "STATION_UPDATED",
-                "assignments": session_state.assignments,
-                "rotation": session_state.rotation_index,
-            }
+    if WS_ENABLE_PARTIAL_EVENTS:
+        await websocket.send(
+            json.dumps(
+                {
+                    "type": "STATION_UPDATED",
+                    "assignments": session_state.assignments,
+                    "rotation": session_state.rotation_index,
+                }
+            )
         )
-    )
 
-    if WS_ENABLE_SESSION_UPDATE:
-        await websocket.send(json.dumps(build_session_update(session_state)))
+    await websocket.send(json.dumps(build_session_update(session_state)))
 
     try:
         async for message in websocket:
@@ -68,16 +68,16 @@ async def handler(websocket, path=None):
                 print("[DEBUG ROTATE STATIONS] New assignments:", new_assignments, flush=True)
 
                 # Emit update assignments to all clients (fallback MVP event)
-                await broadcast(
-                    {
-                        "type": "STATION_UPDATED",
-                        "assignments": new_assignments,
-                        "rotation": session_state.rotation_index,
-                    }
-                )
+                if WS_ENABLE_PARTIAL_EVENTS:
+                    await broadcast(
+                        {
+                            "type": "STATION_UPDATED",
+                            "assignments": new_assignments,
+                            "rotation": session_state.rotation_index,
+                        }
+                    )
 
-                if WS_ENABLE_SESSION_UPDATE:
-                    await broadcast(build_session_update(session_state))
+                await broadcast(build_session_update(session_state))
 
     except Exception as e:
         print("[WS] Handler exception:", e, flush=True)
@@ -109,6 +109,9 @@ async def broadcast(event: Dict):
 
 def emit_rep_update(client_id: str, reps: int):
     """Emit REP_UPDATE event"""
+    if not WS_ENABLE_PARTIAL_EVENTS:
+        return
+
     if server_loop is None:
         print("[WS] emit_rep_update: server_loop not ready", flush=True)
         return
@@ -124,6 +127,9 @@ def emit_rep_update(client_id: str, reps: int):
 
 def emit_pose_error(client_id: str, exercise: str, error_code: str):
     """Emit POSE_ERROR event"""
+    if not WS_ENABLE_PARTIAL_EVENTS:
+        return
+
     if server_loop is None:
         print("[WS] emit_pose_error: server_loop not ready", flush=True)
         return
@@ -139,9 +145,7 @@ def emit_pose_error(client_id: str, exercise: str, error_code: str):
 
 
 def emit_session_update():
-    """Emit SESSION_UPDATE snapshot when Phase 1 is enabled."""
-    if not WS_ENABLE_SESSION_UPDATE:
-        return
+    """Emit canonical SESSION_UPDATE snapshot."""
 
     if server_loop is None:
         print("[WS] emit_session_update: server_loop not ready", flush=True)
