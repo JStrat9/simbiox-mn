@@ -24,8 +24,10 @@ from utils.draw_feedback import draw_feedback
 from communication.websocket_server import (
     emit_pose_error,
     emit_rep_update,
+    emit_session_update,
     start_server,
     register_rotate_station_handler,
+    register_session_state,
 )
 from tracking.tracker_iou import CentroidTracker
 
@@ -47,6 +49,7 @@ session_manager = SessionPersonManager(
     distance_threshold=120.0,
 )
 session_manager.session_state = session_state
+register_session_state(session_state)
 
 
 def on_rotate_station(session_person_id: str, station_id: str):
@@ -75,16 +78,47 @@ def sync_session_state_for_person(
     station_id: str,
     result: dict,
     is_squat_station: bool,
-):
-    session_state.set_assignment(session_person_id, station_id)
+) -> bool:
+    changed = False
+
+    if session_state.assignments.get(session_person_id) != station_id:
+        session_state.set_assignment(
+            session_person_id,
+            station_id,
+            increment_version=WS_ENABLE_SESSION_UPDATE,
+        )
+        changed = True
 
     if not is_squat_station:
-        session_state.set_errors(session_person_id, [])
-        return
+        if session_state.errors.get(session_person_id, []) != []:
+            session_state.set_errors(
+                session_person_id,
+                [],
+                increment_version=WS_ENABLE_SESSION_UPDATE,
+            )
+            changed = True
+        return changed
 
     if result.get("valid"):
-        session_state.set_reps(session_person_id, result.get("reps", 0))
-        session_state.set_errors(session_person_id, result.get("errors", []))
+        next_reps = max(0, int(result.get("reps", 0)))
+        if session_state.reps.get(session_person_id, 0) != next_reps:
+            session_state.set_reps(
+                session_person_id,
+                next_reps,
+                increment_version=WS_ENABLE_SESSION_UPDATE,
+            )
+            changed = True
+
+        next_errors = list(dict.fromkeys(result.get("errors", [])))
+        if session_state.errors.get(session_person_id, []) != next_errors:
+            session_state.set_errors(
+                session_person_id,
+                next_errors,
+                increment_version=WS_ENABLE_SESSION_UPDATE,
+            )
+            changed = True
+
+    return changed
 
 
 def main():
@@ -133,6 +167,8 @@ def main():
 
         frame_s = side_queue.get()
         people_s = movenet.run(frame_s)
+
+        frame_state_changed = False
 
         # -----------------------
         # Analizar cada persona
@@ -215,17 +251,17 @@ def main():
                 draw_edges(frame_s, person_kp)
                 draw_angles(frame_s, person_kp, result.get("angles", {}), side)
 
-            sync_session_state_for_person(
+            person_changed = sync_session_state_for_person(
                 session_person_id=session_person_id,
                 station_id=station.station_id,
                 result=result,
                 is_squat_station=(station.exercise == "squat"),
             )
+            frame_state_changed = frame_state_changed or person_changed
 
-            # --- Emit events ---
+            # --- Emit events (MVP fallback kept for Phase 1) ---
             for event in events:
                 if event["type"] == "REP_UPDATE":
-                    session_state.set_reps(event["session_person_id"], event["reps"])
                     emit_rep_update(event["session_person_id"], event["reps"])
                 elif event["type"] == "POSE_ERROR":
                     emit_pose_error(
@@ -235,6 +271,9 @@ def main():
                     )
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
+
+        if WS_ENABLE_SESSION_UPDATE and frame_state_changed:
+            emit_session_update()
 
         # --- Release missing clients ---
         print(f"[TRACK] active clients this frame: {current_client_ids}")

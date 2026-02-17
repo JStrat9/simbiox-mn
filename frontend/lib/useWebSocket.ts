@@ -2,10 +2,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useClientsStore  } from "@/store/clients";
+import { useClientsStore } from "@/store/clients";
+import type { WSMessage } from "@/lib/wsTypes";
 
 export function useWebSocket() {
     const updateClient = useClientsStore((s) => s.updateClient);
+    const replaceFromSessionUpdate = useClientsStore(
+        (s) => s.replaceFromSessionUpdate,
+    );
     const socketRef = useRef<WebSocket | null>(null);
 
     const send = (data: unknown) => {
@@ -16,7 +20,7 @@ export function useWebSocket() {
             socketRef.current.send(JSON.stringify(data));
             console.log("[WS] Sent message:", data);
         } else {
-            console.warn("[WS] Cannot send, socket not open")
+            console.warn("[WS] Cannot send, socket not open");
         }
     };
 
@@ -36,8 +40,21 @@ export function useWebSocket() {
 
             ws.onmessage = (event) => {
                 try {
-                    const msg = JSON.parse(event.data);
+                    const msg = JSON.parse(event.data) as WSMessage;
                     console.log("📦 [WS] Received message:", msg);
+
+                    if (msg.type === "SESSION_UPDATE") {
+                        replaceFromSessionUpdate(msg);
+                        return;
+                    }
+
+                    const hasSnapshot = useClientsStore.getState()
+                        .lastSessionVersion !== null;
+
+                    // During Phase 1, partial events are fallback-only.
+                    if (hasSnapshot) {
+                        return;
+                    }
 
                     switch (msg.type) {
                         case "REP_UPDATE": {
@@ -63,13 +80,13 @@ export function useWebSocket() {
                             break;
                         }
                         case "STATION_UPDATED": {
-                            const { assignments } = msg as {
-                                assignments: Record<string, string>
-                            };
+                            const { assignments } = msg;
 
-                            Object.entries(assignments).forEach(([id, station]) => {
-                                updateClient(id, { station });
-                            });
+                            Object.entries(assignments).forEach(
+                                ([id, station]) => {
+                                    updateClient(id, { station });
+                                },
+                            );
                             break;
                         }
                         default:
@@ -105,7 +122,7 @@ export function useWebSocket() {
                 socketRef.current.close();
             }
         };
-    }, [updateClient]);
+    }, [updateClient, replaceFromSessionUpdate]);
 
-    return { send }
+    return { send };
 }
