@@ -1,4 +1,5 @@
 import sys
+import re
 import unittest
 from pathlib import Path
 
@@ -47,6 +48,14 @@ class SessionSnapshotTests(unittest.TestCase):
 
         for station_id, station_data in snapshot["stations"].items():
             self.assertIn("exercise", station_data, station_id)
+
+    def test_snapshot_exposes_only_public_athlete_identity(self):
+        state = SessionState()
+        snapshot = build_session_update(state)
+
+        for athlete_id in snapshot["athletes"].keys():
+            self.assertRegex(athlete_id, r"^athlete_\d+$")
+            self.assertFalse(re.match(r"^(person|client|track)_", athlete_id))
 
 
 if __name__ == "__main__":

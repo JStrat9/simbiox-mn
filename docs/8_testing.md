@@ -1,12 +1,13 @@
 # 8️⃣ Testing
 
-## 8.1 Objetivo de PR4
+## 8.1 Objetivo de PR6
 
-Cerrar Fase 1 con cobertura mínima ejecutable en backend y frontend:
+Cerrar Fase 2 con cobertura mínima ejecutable para contrato final:
 
 - validar contrato de `SESSION_UPDATE`,
 - validar monotonicidad de `version`,
-- validar política frontend de prioridad snapshot + fallback parcial.
+- validar transporte websocket de solo snapshot,
+- validar política frontend replace-only por snapshot.
 
 ## 8.2 Tests backend
 
@@ -14,39 +15,41 @@ Cerrar Fase 1 con cobertura mínima ejecutable en backend y frontend:
 
 Cobertura:
 
-- schema base del snapshot:
-  - `type`, `version`, `timestamp`, `athletes`, `stations`;
-- contenido por atleta:
-  - `station_id`, `reps`, `errors`;
-- contenido por estación:
-  - `exercise`.
+- schema base del snapshot (`type`, `version`, `timestamp`, `athletes`, `stations`),
+- contenido por atleta (`station_id`, `reps`, `errors`),
+- identidad pública `athlete_X`.
 
 ### Archivo: `backend/tests/test_versioning.py`
 
 Cobertura:
 
-- `version` no incrementa sin cambio observable;
-- `version` incrementa de forma monótona en:
-  - cambio de reps,
-  - cambio de errores,
-  - cambio de asignación,
-  - rotación efectiva.
-- validación de `increment_version=False` (no incremento).
+- `version` no incrementa sin cambio observable,
+- `version` incrementa de forma monótona para cambios de dominio,
+- `increment_version=False` mantiene `version` estable.
+
+### Archivo: `backend/tests/test_websocket_contract_phase2.py`
+
+Cobertura:
+
+- conexión inicial emite solo `SESSION_UPDATE`,
+- `ROTATE_STATIONS` emite solo `SESSION_UPDATE`,
+- payload websocket mantiene identidad pública `athlete_X`.
 
 ## 8.3 Tests frontend
 
-### Archivo: `frontend/tests/ws_phase1.test.js`
+### Archivo: `frontend/tests/ws_phase2.test.js`
 
 Cobertura:
 
 - aceptación/rechazo de snapshot por versión,
-- habilitación de parciales solo antes del primer snapshot,
-- prioridad de snapshot sobre fallback parcial en Fase 1.
+- política Fase 2 basada solo en orden de versión,
+- reconstrucción replace-only desde snapshot,
+- limpieza de estado stale entre snapshots.
 
 Funciones bajo prueba:
 
 - `shouldApplySessionUpdate(...)`
-- `shouldProcessPartialEvents(...)`
+- `buildClientsFromSessionUpdate(...)`
 
 ## 8.4 Comandos de validación
 
@@ -59,7 +62,7 @@ python -m unittest discover -s backend/tests -p "test_*.py"
 Frontend:
 
 ```bash
-node --experimental-default-type=module --test frontend/tests/ws_phase1.test.js
+node --experimental-default-type=module --test frontend/tests/ws_phase2.test.js
 ```
 
 Lint frontend:
@@ -68,9 +71,9 @@ Lint frontend:
 npm run lint --prefix frontend
 ```
 
-## 8.5 Resultado esperado para cierre de PR4
+## 8.5 Resultado esperado de PR6
 
 - Tests backend en verde.
 - Tests frontend en verde.
 - Lint sin errores bloqueantes.
-- Cobertura suficiente para habilitar corte controlado a Fase 2.
+- Contrato final de Fase 2 validado.

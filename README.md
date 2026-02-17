@@ -23,7 +23,8 @@ El backend es la única fuente de verdad del estado de sesión.
 
 ## Estado actual
 
-- MVP funcional
+- Fase 2 activa (contrato final)
+- `SESSION_UPDATE` como única sincronización canónica de sesión
 - Rotación gestionada en backend
-- Sin persistencia
-- Sin tolerancia a pérdida de eventos WS
+- Frontend pasivo con reemplazo de estado por snapshot versionado
+- Sin persistencia histórica (por ahora)

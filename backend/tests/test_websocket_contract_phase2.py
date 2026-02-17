@@ -1,0 +1,73 @@
+import json
+import re
+import sys
+import unittest
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from communication import websocket_server
+from session.session_state import SessionState
+
+
+class FakeWebSocket:
+    def __init__(self, incoming_messages: list[str]):
+        self.remote_address = ("127.0.0.1", 12345)
+        self._incoming = list(incoming_messages)
+        self.sent_payloads: list[dict] = []
+
+    async def send(self, payload: str):
+        self.sent_payloads.append(json.loads(payload))
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._incoming:
+            raise StopAsyncIteration
+        return self._incoming.pop(0)
+
+
+class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        websocket_server.connected_clients.clear()
+        state = SessionState()
+        websocket_server.register_session_state(state)
+
+    async def test_initial_connection_sends_only_session_update(self):
+        ws = FakeWebSocket(incoming_messages=[])
+
+        await websocket_server.handler(ws)
+
+        self.assertEqual(len(ws.sent_payloads), 1)
+        self.assertEqual(ws.sent_payloads[0]["type"], "SESSION_UPDATE")
+        self.assertNotIn("assignments", ws.sent_payloads[0])
+        self.assertNotIn("rotation", ws.sent_payloads[0])
+
+    async def test_rotate_stations_broadcasts_only_session_update(self):
+        rotate_msg = json.dumps({"type": "ROTATE_STATIONS"})
+        ws = FakeWebSocket(incoming_messages=[rotate_msg])
+
+        await websocket_server.handler(ws)
+
+        self.assertEqual(len(ws.sent_payloads), 2)
+        first, second = ws.sent_payloads
+        self.assertEqual(first["type"], "SESSION_UPDATE")
+        self.assertEqual(second["type"], "SESSION_UPDATE")
+        self.assertGreater(second["version"], first["version"])
+
+    async def test_transport_uses_public_athlete_identity(self):
+        ws = FakeWebSocket(incoming_messages=[])
+
+        await websocket_server.handler(ws)
+
+        snapshot = ws.sent_payloads[0]
+        for athlete_id in snapshot["athletes"].keys():
+            self.assertRegex(athlete_id, r"^athlete_\d+$")
+            self.assertFalse(re.match(r"^(person|client|track)_", athlete_id))
+
+
+if __name__ == "__main__":
+    unittest.main()

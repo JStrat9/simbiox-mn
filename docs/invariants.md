@@ -1,27 +1,23 @@
 # Invariantes del sistema SimbioX
 
-Este documento define las reglas no negociables del sistema y su aplicación por fase durante la transición de MVP a contrato final.
+Este documento define las reglas no negociables del sistema y su estado actual de cumplimiento.
 
 ---
 
-## 0. Alcance por fase
+## 0. Estado de fases
 
-- Fase 0 (MVP actual): eventos parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED`).
-- Fase 1 (doble emisión): eventos parciales + `SESSION_UPDATE`.
-- Fase 2 (contrato final): `SESSION_UPDATE` como sincronización canónica.
-
-Regla de compatibilidad:
-
-- Las fases 0 y 1 son una excepción transitoria controlada, no un cambio de principios de dominio.
+- Fase 0 (histórica): eventos parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED`).
+- Fase 1 (histórica): doble emisión (parciales + `SESSION_UPDATE`).
+- Fase 2 (vigente): `SESSION_UPDATE` como única sincronización canónica.
 
 ---
 
-## 1. Invariantes permanentes (aplican en todas las fases)
+## 1. Invariantes permanentes (aplican siempre)
 
 ### 1.1 Fuente de verdad
 
 - El backend es la única fuente de verdad del estado del sistema.
-- `SessionState` (o su sucesor de dominio) representa el estado global autorizado.
+- `SessionState` representa el estado global autorizado.
 - El frontend no mantiene estado lógico canónico independiente.
 
 ### 1.2 Frontend pasivo
@@ -41,7 +37,7 @@ El frontend no puede:
 
 - La única identidad pública del sistema es `athlete_X`.
 - `athlete_X` representa identidad lógica, no identidad física del tracker.
-- El backend nunca expone IDs físicos (`person1`, `client42`, `track_7`, etc.).
+- El backend no expone IDs físicos (`person1`, `client42`, `track_7`, etc.).
 
 ### 1.4 Separación de responsabilidades
 
@@ -50,7 +46,7 @@ El frontend no puede:
 - Asignaciones `athlete_id -> station_id`.
 - Definición de estaciones y ejercicios.
 - Reps y errores por atleta.
-- Índice de rotación y versionado (cuando aplique por fase).
+- Índice de rotación y versionado canónico.
 
 `SessionPersonManager`:
 
@@ -71,39 +67,30 @@ El frontend no puede:
 
 ---
 
-## 2. Invariantes de sincronización por fase
-
-### 2.1 Fase 0 (MVP actual)
-
-- Se permite emisión incremental por eventos parciales.
-- Aun con eventos parciales, el backend sigue siendo la fuente de verdad.
-- El frontend no debe reinterpretar reglas de negocio fuera de lo recibido.
-
-### 2.2 Fase 1 (doble emisión)
-
-- `SESSION_UPDATE` convive con eventos parciales por compatibilidad.
-- Si llega `SESSION_UPDATE`, debe considerarse el snapshot prioritario.
-- Eventos parciales no deben sobreescribir un snapshot más nuevo.
-
-### 2.3 Fase 2 (contrato final)
+## 2. Invariantes de sincronización (Fase 2 vigente)
 
 - `SESSION_UPDATE` es la única fuente canónica de sincronización de sesión.
 - El evento representa estado completo y coherente, no incremental.
-- El frontend reemplaza su estado al recibir versión superior.
+- El frontend reemplaza su estado al recibir `version` superior.
+- Mensajes parciales de sesión no son parte del contrato funcional vigente.
+
+Nota histórica:
+
+- Fases 0 y 1 fueron excepciones transitorias de compatibilidad y ya no aplican al runtime actual.
 
 ---
 
 ## 3. Versionado
 
-- Objetivo final: todo cambio observable de dominio incrementa una `version` monótona.
-- En MVP, `rotation_index` funciona como señal parcial de avance, no reemplaza el versionado global final.
-- La transición se completa cuando el backend mantiene `version` canónica y el frontend la respeta.
+- Todo cambio observable de dominio incrementa una `version` monótona.
+- `rotation_index` no reemplaza el versionado global.
+- Cambios no observables (mismo valor) no incrementan `version`.
 
 ---
 
 ## 4. Regla de cumplimiento
 
-Si una PR rompe alguna invariante permanente, o rompe las reglas de fase activas:
+Si una PR rompe alguna invariante permanente o el contrato activo de Fase 2:
 
 - El sistema deja de ser fiable.
 - El cambio no debe integrarse.
