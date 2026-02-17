@@ -14,7 +14,6 @@ import psutil
 import threading
 import numpy as np
 
-from feedback.event_mapper import SquatEventAggregator
 from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
 from detectors.keypoints_movenet import choose_side, extract_side_keypoints
@@ -22,8 +21,6 @@ from detectors.squat_detector_manager import SquatDetectorManager
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
 from communication.websocket_server import (
-    emit_pose_error,
-    emit_rep_update,
     emit_session_update,
     start_server,
     register_rotate_station_handler,
@@ -38,7 +35,6 @@ from config import (
     CAMERA_FRONT_URL,
     CAMERA_SIDE_URL,
     MOVENET_TFLITE_MODEL,
-    WS_ENABLE_PARTIAL_EVENTS,
 )
 
 session_state = SessionState()
@@ -124,11 +120,6 @@ def sync_session_state_for_person(
 def main():
     # Inicializar MoveNet
     print("[INFO] Cargando MoveNet...")
-    print(f"[CONFIG] WS_ENABLE_PARTIAL_EVENTS={WS_ENABLE_PARTIAL_EVENTS}")
-    print(
-        "[CONFIG] WS_ENABLE_SESSION_UPDATE is deprecated; "
-        "SESSION_UPDATE canonical emission is always on."
-    )
     movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
 
     detector_manager = SquatDetectorManager(max_clients=6)
@@ -151,7 +142,6 @@ def main():
 
     print("[INFO] Iniciando loop principal...")
 
-    aggregator = SquatEventAggregator()
     tracker = CentroidTracker(max_clients=6, distance_threshold=100)
 
     while True:
@@ -226,7 +216,6 @@ def main():
                 f"reps={station.reps}"
             )
 
-            events = []
             result = {
                 "valid": True,
                 "reps": session_state.reps.get(session_person_id, 0),
@@ -239,10 +228,6 @@ def main():
                 print(f"[SESSION] client_id={client_id} -> session_person_id={session_person_id}")
 
                 result = detector.analyze(person_kp)
-
-                # --- Process events ---
-                if result.get("valid"):
-                    events = aggregator.process(session_person_id, result)
 
                 # --- Draw feedback ---
                 draw_feedback(
@@ -262,18 +247,6 @@ def main():
                 is_squat_station=(station.exercise == "squat"),
             )
             frame_state_changed = frame_state_changed or person_changed
-
-            # --- Emit events (MVP fallback kept for Phase 1) ---
-            if WS_ENABLE_PARTIAL_EVENTS:
-                for event in events:
-                    if event["type"] == "REP_UPDATE":
-                        emit_rep_update(event["session_person_id"], event["reps"])
-                    elif event["type"] == "POSE_ERROR":
-                        emit_pose_error(
-                            event["session_person_id"],
-                            event["exercise"],
-                            event["errorCode"],
-                        )
 
             print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
 

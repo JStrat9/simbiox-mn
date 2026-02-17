@@ -4,13 +4,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 # Camera URLs
 CAMERA_FRONT_URL = os.getenv("CAMERA_FRONT_URL")
 CAMERA_SIDE_URL = os.getenv("CAMERA_SIDE_URL")
@@ -45,10 +38,3 @@ ERROR_REPEAT_THRESHOLD = int(os.getenv("ERROR_REPEAT_THRESHOLD", 2))
 
 # Max number of persons detected by MoveNet
 MAX_PERSONS = int(os.getenv("MAX_PERSONS", 6))
-
-# Legacy compatibility flag for partial WS events (Phase 0/1 behavior).
-WS_ENABLE_PARTIAL_EVENTS = _env_bool("WS_ENABLE_PARTIAL_EVENTS", True)
-
-# Deprecated: SESSION_UPDATE is now always active as canonical snapshot.
-# This variable is kept only for temporary config backward compatibility.
-WS_ENABLE_SESSION_UPDATE = _env_bool("WS_ENABLE_SESSION_UPDATE", True)

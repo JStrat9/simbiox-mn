@@ -1,58 +1,53 @@
 # feedback/event_mapper.py
 
-class SquatEventAggregator:
+
+class SquatTelemetryAggregator:
+    """
+    Internal per-athlete telemetry helper.
+
+    This module no longer produces transport-level websocket events.
+    It only computes frame-to-frame deltas that can be logged or exported
+    to internal observability pipelines.
+    """
+
     def __init__(self, max_clients: int = 6, error_hold_frames: int = 3):
-        """
-        max_clients: max number of clients
-        error_hold_frames: number of frames to consider an error has desappeared
-        """
         self.max_clients = max_clients
-        self.prev_reps = {}
-        self.active_errors = {}
+        self.prev_reps: dict[str, int] = {}
+        self.active_errors: dict[str, dict[str, int]] = {}
         self.error_hold_frames = error_hold_frames
 
-    def process(self, session_person_id: str, result: dict) -> list[dict]:
-        events = []
+    def observe(self, athlete_id: str, result: dict) -> dict:
+        prev_reps = self.prev_reps.get(athlete_id, 0)
+        curr_reps = int(result.get("reps", 0))
+        rep_changed = curr_reps != prev_reps
+        if rep_changed:
+            self.prev_reps[athlete_id] = curr_reps
 
-        # --- REP_UPDATE ---
-        prev = self.prev_reps.get(session_person_id, 0)
-        curr = result.get("reps", 0)
-        if curr != prev:
-            events.append({
-                "type": "REP_UPDATE",
-                "session_person_id": session_person_id,
-                "reps": curr
-            })
-            self.prev_reps[session_person_id] = curr
+        if athlete_id not in self.active_errors:
+            self.active_errors[athlete_id] = {}
 
-        # --- POSE_ERROR ---
-        if session_person_id not in self.active_errors:
-            self.active_errors[session_person_id] = {}
-        
-        # current errors on the current frame
-        curr_errs = set(result.get("errors", []))
-        # previous active errors
-        prev_errs = set(self.active_errors[session_person_id].keys())
+        curr_errors = set(result.get("errors", []))
+        prev_errors = set(self.active_errors[athlete_id].keys())
 
-        # new errors -> emit
-        for err in curr_errs - prev_errs:
-            events.append({
-                "type": "POSE_ERROR",
-                "session_person_id": session_person_id,
-                "exercise": "Squat",
-                "errorCode": err
-            })
-            # Marck errors as active with hold 
-            self.active_errors[session_person_id][err] = self.error_hold_frames
-        
-        # Already active errors -> refresh hold
-        for err in curr_errs & prev_errs:
-            self.active_errors[session_person_id][err] = self.error_hold_frames
+        new_errors = sorted(curr_errors - prev_errors)
+        resolved_errors = sorted(prev_errors - curr_errors)
 
-        # Decrease hold for active errors
-        for err in prev_errs - curr_errs:
-            self.active_errors[session_person_id][err] -= 1
-            if self.active_errors[session_person_id][err] <= 0:
-                del self.active_errors[session_person_id][err]
+        for error_code in curr_errors & prev_errors:
+            self.active_errors[athlete_id][error_code] = self.error_hold_frames
 
-        return events
+        for error_code in new_errors:
+            self.active_errors[athlete_id][error_code] = self.error_hold_frames
+
+        for error_code in list(resolved_errors):
+            self.active_errors[athlete_id][error_code] -= 1
+            if self.active_errors[athlete_id][error_code] <= 0:
+                del self.active_errors[athlete_id][error_code]
+
+        return {
+            "athlete_id": athlete_id,
+            "rep_changed": rep_changed,
+            "reps": curr_reps,
+            "new_errors": new_errors,
+            "active_errors": sorted(self.active_errors[athlete_id].keys()),
+        }
+

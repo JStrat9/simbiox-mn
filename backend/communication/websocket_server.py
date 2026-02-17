@@ -7,7 +7,6 @@ import websockets
 
 from typing import Dict, Set
 
-from config import WS_ENABLE_PARTIAL_EVENTS
 from session.rotation import rotate_stations
 from session.session_snapshot import build_session_update
 from session.session_state import SessionState
@@ -40,17 +39,6 @@ async def handler(websocket, path=None):
     )
     connected_clients.add(websocket)
 
-    if WS_ENABLE_PARTIAL_EVENTS:
-        await websocket.send(
-            json.dumps(
-                {
-                    "type": "STATION_UPDATED",
-                    "assignments": session_state.assignments,
-                    "rotation": session_state.rotation_index,
-                }
-            )
-        )
-
     await websocket.send(json.dumps(build_session_update(session_state)))
 
     try:
@@ -66,16 +54,6 @@ async def handler(websocket, path=None):
             if msg.get("type") == "ROTATE_STATIONS":
                 new_assignments = rotate_stations(session_state)
                 print("[DEBUG ROTATE STATIONS] New assignments:", new_assignments, flush=True)
-
-                # Emit update assignments to all clients (fallback MVP event)
-                if WS_ENABLE_PARTIAL_EVENTS:
-                    await broadcast(
-                        {
-                            "type": "STATION_UPDATED",
-                            "assignments": new_assignments,
-                            "rotation": session_state.rotation_index,
-                        }
-                    )
 
                 await broadcast(build_session_update(session_state))
 
@@ -105,43 +83,6 @@ async def broadcast(event: Dict):
     for result in results:
         if isinstance(result, Exception):
             print("[WS] Failed to send message:", result, flush=True)
-
-
-def emit_rep_update(client_id: str, reps: int):
-    """Emit REP_UPDATE event"""
-    if not WS_ENABLE_PARTIAL_EVENTS:
-        return
-
-    if server_loop is None:
-        print("[WS] emit_rep_update: server_loop not ready", flush=True)
-        return
-
-    event = {
-        "type": "REP_UPDATE",
-        "clientId": client_id,
-        "reps": reps,
-    }
-
-    asyncio.run_coroutine_threadsafe(broadcast(event), server_loop)
-
-
-def emit_pose_error(client_id: str, exercise: str, error_code: str):
-    """Emit POSE_ERROR event"""
-    if not WS_ENABLE_PARTIAL_EVENTS:
-        return
-
-    if server_loop is None:
-        print("[WS] emit_pose_error: server_loop not ready", flush=True)
-        return
-
-    event = {
-        "type": "POSE_ERROR",
-        "clientId": client_id,
-        "exercise": exercise,
-        "errorCode": error_code,
-    }
-
-    asyncio.run_coroutine_threadsafe(broadcast(event), server_loop)
 
 
 def emit_session_update():
