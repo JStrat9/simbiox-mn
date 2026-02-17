@@ -2,7 +2,10 @@
 
 import { create } from "zustand";
 import type { SessionUpdateMessage } from "@/lib/wsTypes";
-import { shouldApplySessionUpdate } from "@/lib/wsPhase1Policy";
+import {
+    buildClientsFromSessionUpdate,
+    shouldApplySessionUpdate,
+} from "@/lib/wsPhase1Policy";
 
 type ClientState = {
     reps: number;
@@ -57,11 +60,6 @@ const DEFAULT_CLIENTS: Record<string, ClientState> = {
     },
 };
 
-const humanizeExercise = (exercise: string): string => {
-    if (!exercise) return "";
-    return exercise.charAt(0).toUpperCase() + exercise.slice(1);
-};
-
 export const useClientsStore = create<ClientsStore>((set) => ({
     clients: DEFAULT_CLIENTS,
     lastSessionVersion: null,
@@ -88,41 +86,11 @@ export const useClientsStore = create<ClientsStore>((set) => ({
                 return state;
             }
 
-            const nextClients: Record<string, ClientState> = {
-                ...state.clients,
-            };
-
-            Object.entries(snapshot.athletes).forEach(
-                ([athleteId, athleteState]) => {
-                    const stationId = athleteState.station_id ?? undefined;
-                    const exerciseRaw = stationId
-                        ? snapshot.stations[stationId]?.exercise ?? ""
-                        : "";
-                    const exercise = humanizeExercise(exerciseRaw);
-                    const currentErrors = athleteState.errors.map((errorCode) =>
-                        exercise ? `${exercise}: ${errorCode}` : errorCode,
-                    );
-
-                    const previousClient =
-                        nextClients[athleteId] ??
-                        DEFAULT_CLIENTS[athleteId] ?? {
-                            reps: 0,
-                            exercise: "",
-                            currentErrors: [],
-                        };
-
-                    nextClients[athleteId] = {
-                        ...previousClient,
-                        reps: athleteState.reps,
-                        exercise,
-                        currentErrors,
-                        station: stationId,
-                    };
-                },
-            );
-
             return {
-                clients: nextClients,
+                clients: buildClientsFromSessionUpdate(snapshot) as Record<
+                    string,
+                    ClientState
+                >,
                 lastSessionVersion: snapshot.version,
             };
         }),

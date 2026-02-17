@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+    buildClientsFromSessionUpdate,
     shouldApplySessionUpdate,
     shouldProcessPartialEvents,
 } from "../lib/wsPhase1Policy.js";
@@ -37,4 +38,96 @@ test("phase 1 policy prioritizes snapshot over partial fallback", () => {
 
     assert.equal(lastSessionVersion, 5);
     assert.equal(partialEventsApplied, 0);
+});
+
+test("buildClientsFromSessionUpdate builds a full replace-only view from snapshot", () => {
+    const snapshot = {
+        type: "SESSION_UPDATE",
+        version: 10,
+        timestamp: 1730000000,
+        athletes: {
+            athlete_1: {
+                station_id: "station1",
+                reps: 7,
+                errors: ["DEPTH_INSUFFICIENT"],
+            },
+            athlete_2: {
+                station_id: null,
+                reps: 0,
+                errors: [],
+            },
+        },
+        stations: {
+            station1: { exercise: "squat" },
+        },
+    };
+
+    const clients = buildClientsFromSessionUpdate(snapshot);
+
+    assert.deepEqual(clients, {
+        athlete_1: {
+            reps: 7,
+            exercise: "Squat",
+            currentErrors: ["Squat: DEPTH_INSUFFICIENT"],
+            station: "station1",
+        },
+        athlete_2: {
+            reps: 0,
+            exercise: "",
+            currentErrors: [],
+            station: undefined,
+        },
+    });
+});
+
+test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields", () => {
+    const firstSnapshot = {
+        type: "SESSION_UPDATE",
+        version: 11,
+        timestamp: 1730000001,
+        athletes: {
+            athlete_1: {
+                station_id: "station1",
+                reps: 5,
+                errors: ["KNEE_FORWARD"],
+            },
+            athlete_legacy: {
+                station_id: "station9",
+                reps: 99,
+                errors: ["OLD_ERROR"],
+            },
+        },
+        stations: {
+            station1: { exercise: "squat" },
+            station9: { exercise: "legacy" },
+        },
+    };
+
+    const secondSnapshot = {
+        type: "SESSION_UPDATE",
+        version: 12,
+        timestamp: 1730000002,
+        athletes: {
+            athlete_1: {
+                station_id: "station2",
+                reps: 1,
+                errors: [],
+            },
+        },
+        stations: {
+            station2: { exercise: "pushup" },
+        },
+    };
+
+    const clientsAfterFirst = buildClientsFromSessionUpdate(firstSnapshot);
+    const clientsAfterSecond = buildClientsFromSessionUpdate(secondSnapshot);
+
+    assert.ok("athlete_legacy" in clientsAfterFirst);
+    assert.equal("athlete_legacy" in clientsAfterSecond, false);
+    assert.deepEqual(clientsAfterSecond.athlete_1, {
+        reps: 1,
+        exercise: "Pushup",
+        currentErrors: [],
+        station: "station2",
+    });
 });
