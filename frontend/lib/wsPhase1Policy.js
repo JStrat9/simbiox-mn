@@ -36,7 +36,3 @@ export function buildClientsFromSessionUpdate(snapshot) {
 
     return nextClients;
 }
-
-export function shouldProcessPartialEvents(lastSessionVersion) {
-    return lastSessionVersion === null || lastSessionVersion === undefined;
-}

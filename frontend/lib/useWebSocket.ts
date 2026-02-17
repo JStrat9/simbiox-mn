@@ -4,10 +4,8 @@
 import { useEffect, useRef } from "react";
 import { useClientsStore } from "@/store/clients";
 import type { WSMessage } from "@/lib/wsTypes";
-import { shouldProcessPartialEvents } from "@/lib/wsPhase1Policy";
 
 export function useWebSocket() {
-    const updateClient = useClientsStore((s) => s.updateClient);
     const replaceFromSessionUpdate = useClientsStore(
         (s) => s.replaceFromSessionUpdate,
     );
@@ -49,51 +47,7 @@ export function useWebSocket() {
                         return;
                     }
 
-                    // During Phase 1, partial events are fallback-only.
-                    if (
-                        !shouldProcessPartialEvents(
-                            useClientsStore.getState().lastSessionVersion,
-                        )
-                    ) {
-                        return;
-                    }
-
-                    switch (msg.type) {
-                        case "REP_UPDATE": {
-                            const { clientId, reps } = msg;
-                            updateClient(clientId, { reps });
-                            break;
-                        }
-                        case "POSE_ERROR": {
-                            const { clientId, exercise, errorCode } = msg;
-                            const newError = `${exercise}: ${errorCode}`;
-                            
-                            updateClient(clientId, (prev) => {
-                                if (prev.currentErrors.includes(newError)) {
-                                    return {};
-                                }
-                                return {
-                                    currentErrors: [
-                                        ...prev.currentErrors,
-                                        newError,
-                                    ],
-                                };
-                            });
-                            break;
-                        }
-                        case "STATION_UPDATED": {
-                            const { assignments } = msg;
-
-                            Object.entries(assignments).forEach(
-                                ([id, station]) => {
-                                    updateClient(id, { station });
-                                },
-                            );
-                            break;
-                        }
-                        default:
-                            console.warn("[WS] Unknown message type:", msg.type);
-                    }
+                    console.warn("[WS] Unsupported message type:", msg.type);
                 } catch (err) {
                     console.error("[WS] Failed to parse message:", err);
                 }
@@ -124,7 +78,7 @@ export function useWebSocket() {
                 socketRef.current.close();
             }
         };
-    }, [updateClient, replaceFromSessionUpdate]);
+    }, [replaceFromSessionUpdate]);
 
     return { send };
 }

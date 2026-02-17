@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
     buildClientsFromSessionUpdate,
     shouldApplySessionUpdate,
-    shouldProcessPartialEvents,
 } from "../lib/wsPhase1Policy.js";
 
 test("shouldApplySessionUpdate accepts first snapshot and newer versions", () => {
@@ -18,26 +17,16 @@ test("shouldApplySessionUpdate rejects stale or duplicated snapshots", () => {
     assert.equal(shouldApplySessionUpdate(3, 2), false);
 });
 
-test("shouldProcessPartialEvents enables fallback only before first snapshot", () => {
-    assert.equal(shouldProcessPartialEvents(null), true);
-    assert.equal(shouldProcessPartialEvents(undefined), true);
-    assert.equal(shouldProcessPartialEvents(1), false);
-});
-
-test("phase 1 policy prioritizes snapshot over partial fallback", () => {
+test("phase 2 policy applies only snapshot version ordering", () => {
     let lastSessionVersion = null;
-    let partialEventsApplied = 0;
 
     if (shouldApplySessionUpdate(lastSessionVersion, 5)) {
         lastSessionVersion = 5;
     }
 
-    if (shouldProcessPartialEvents(lastSessionVersion)) {
-        partialEventsApplied += 1;
-    }
-
     assert.equal(lastSessionVersion, 5);
-    assert.equal(partialEventsApplied, 0);
+    assert.equal(shouldApplySessionUpdate(lastSessionVersion, 5), false);
+    assert.equal(shouldApplySessionUpdate(lastSessionVersion, 6), true);
 });
 
 test("buildClientsFromSessionUpdate builds a full replace-only view from snapshot", () => {
