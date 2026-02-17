@@ -1,70 +1,71 @@
 # 7️⃣ Nivel de Ejecución (Runtime)
 
-## 7.1 PR1 – Preparación de estado canónico (sin cambio de emisión)
+## 7.1 Estado actual de ejecución
 
-**Objetivo**
+Sistema activo en **Fase 1 (doble emisión)** controlada por flag:
 
-Preparar el backend para soportar SESSION_UPDATE sin alterar el comportamiento actual (Fase 0).
+- `WS_ENABLE_SESSION_UPDATE=false`:
+  - Solo eventos parciales (comportamiento Fase 0).
+- `WS_ENABLE_SESSION_UPDATE=true`:
+  - Eventos parciales + snapshot `SESSION_UPDATE`.
 
-**Cambios introducidos:**
+## 7.2 Flujo principal en tiempo real
 
-1. Feature Flag
+1. Cámara entrega frame al loop principal.
+2. MoveNet genera keypoints por persona.
+3. Tracker resuelve `client_id` y SessionPersonManager resuelve `athlete_X`.
+4. Detector de ejercicio evalúa reps y errores.
+5. `SessionState` se sincroniza con:
+   - asignaciones,
+   - reps,
+   - errores.
+6. Emisión al frontend:
+   - siempre: parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED` en rotación),
+   - si flag activo y hubo cambio observable: `SESSION_UPDATE`.
 
-**Se agregó:**
-WS_ENABLE_SESSION_UPDATE (default: false)
+## 7.3 Eventos emitidos por fase
 
-**Propósito:**
+### Fase 0 (`WS_ENABLE_SESSION_UPDATE=false`)
 
-- Permitir activación controlada de doble emisión en PR2.
-- Mantener comportamiento Fase 0 intacto mientras el flag esté en false.
+- `REP_UPDATE`
+- `POSE_ERROR`
+- `STATION_UPDATED`
 
-**Estado actual:**
+### Fase 1 (`WS_ENABLE_SESSION_UPDATE=true`)
 
-- El flag no altera aún el flujo de emisión.
+- Se mantienen los 3 eventos parciales (fallback).
+- Además se emite `SESSION_UPDATE` en:
+  1. conexión inicial de cliente,
+  2. rotación de estaciones,
+  3. cambios observables en frame (reps/errores/asignaciones).
 
-## 7.2. Estado Canónico Extendido
+## 7.4 Versionado y cambios observables
 
-**SessionState ahora incluye:**
+Regla implementada:
 
-    - version
-    - updated_at
-    - errors por atleta
+- `version` solo sube cuando hay cambio observable del estado canónico.
 
-**El estado pasa a representar:**
+Casos implementados:
 
-    - Asignaciones
-    - Repeticiones
-    - Errores
-    - Versión monotónica
-    - Timestamp de última mutación
+- `rotate_stations` efectiva -> incrementa `version`.
+- Cambios de reps/errores/asignaciones en loop principal -> incrementan `version` cuando flag está activo.
 
-Esto convierte a SessionState en la única fuente de verdad del backend.
+Casos sin incremento:
 
-## 7.3. Consistencia en Rotaciones
+- Reasignación al mismo valor.
+- Reps/errores sin cambio real.
 
-**La rotación ahora:**
+## 7.5 Comportamiento frontend en Fase 1
 
-    - Incrementa rotation_index
-    - Actualiza updated_at
-    - Incrementa version solo si la rotación fue efectiva
+- Si llega `SESSION_UPDATE`, el frontend prioriza snapshot por `version`.
+- Una vez recibido snapshot válido, eventos parciales pasan a modo fallback y se ignoran para evitar rollback con eventos obsoletos.
+- Si aún no llegó snapshot, se sigue renderizando con parciales.
 
-Esto introduce control de cambios observables desde backend.
+## 7.6 Criterio de salida a Fase 2
 
-## 7.4. Sincronización desde main loop
+Podemos cortar a Fase 2 cuando:
 
-El loop principal ahora sincroniza explícitamente:
-
-    - Asignaciones
-    - Reps
-    - Errores
-
-Antes de cualquier futura emisión basada en snapshot.
-
-## Impacto en Runtime
-
-    - No cambia el comportamiento de WebSocket.
-    - No cambia frontend.
-    - No cambia tipos de eventos.
-    - No se altera frecuencia de emisión.
-
-El sistema sigue operando en modo Fase 0.
+1. `SESSION_UPDATE` esté activo y estable en todos los flujos críticos.
+2. Frontend funcione correctamente sin depender de parciales.
+3. Métricas y pruebas no muestren regresión en reps/errores/rotación.
+4. Se retire consumo funcional de `REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED`.

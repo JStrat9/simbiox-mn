@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import type { SessionUpdateMessage } from "@/lib/wsTypes";
+import { shouldApplySessionUpdate } from "@/lib/wsPhase1Policy";
 
 type ClientState = {
     reps: number;
@@ -79,8 +80,10 @@ export const useClientsStore = create<ClientsStore>((set) => ({
     replaceFromSessionUpdate: (snapshot) =>
         set((state) => {
             if (
-                state.lastSessionVersion !== null &&
-                snapshot.version <= state.lastSessionVersion
+                !shouldApplySessionUpdate(
+                    state.lastSessionVersion,
+                    snapshot.version,
+                )
             ) {
                 return state;
             }

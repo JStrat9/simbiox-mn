@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 import { useClientsStore } from "@/store/clients";
 import type { WSMessage } from "@/lib/wsTypes";
+import { shouldProcessPartialEvents } from "@/lib/wsPhase1Policy";
 
 export function useWebSocket() {
     const updateClient = useClientsStore((s) => s.updateClient);
@@ -48,11 +49,12 @@ export function useWebSocket() {
                         return;
                     }
 
-                    const hasSnapshot = useClientsStore.getState()
-                        .lastSessionVersion !== null;
-
                     // During Phase 1, partial events are fallback-only.
-                    if (hasSnapshot) {
+                    if (
+                        !shouldProcessPartialEvents(
+                            useClientsStore.getState().lastSessionVersion,
+                        )
+                    ) {
                         return;
                     }
 
