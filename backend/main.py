@@ -85,7 +85,7 @@ def sync_session_state_for_person(
         session_state.set_assignment(
             session_person_id,
             station_id,
-            increment_version=WS_ENABLE_SESSION_UPDATE,
+            increment_version=True,
         )
         changed = True
 
@@ -94,7 +94,7 @@ def sync_session_state_for_person(
             session_state.set_errors(
                 session_person_id,
                 [],
-                increment_version=WS_ENABLE_SESSION_UPDATE,
+                increment_version=True,
             )
             changed = True
         return changed
@@ -105,7 +105,7 @@ def sync_session_state_for_person(
             session_state.set_reps(
                 session_person_id,
                 next_reps,
-                increment_version=WS_ENABLE_SESSION_UPDATE,
+                increment_version=True,
             )
             changed = True
 
@@ -114,7 +114,7 @@ def sync_session_state_for_person(
             session_state.set_errors(
                 session_person_id,
                 next_errors,
-                increment_version=WS_ENABLE_SESSION_UPDATE,
+                increment_version=True,
             )
             changed = True
 

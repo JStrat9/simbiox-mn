@@ -44,16 +44,21 @@ Sistema activo en **Fase 1 (doble emisión)** controlada por flag:
 Regla implementada:
 
 - `version` solo sube cuando hay cambio observable del estado canónico.
+- Esta regla aplica siempre (independiente de `WS_ENABLE_SESSION_UPDATE`).
 
 Casos implementados:
 
 - `rotate_stations` efectiva -> incrementa `version`.
-- Cambios de reps/errores/asignaciones en loop principal -> incrementan `version` cuando flag está activo.
+- Cambios de reps/errores/asignaciones en loop principal -> incrementan `version` con flag activo o inactivo.
 
 Casos sin incremento:
 
 - Reasignación al mismo valor.
 - Reps/errores sin cambio real.
+
+Nota:
+
+- `WS_ENABLE_SESSION_UPDATE` controla emisión de snapshot WS, no el mantenimiento interno de versionado canónico.
 
 ## 7.5 Comportamiento frontend en Fase 1
 

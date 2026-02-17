@@ -11,6 +11,20 @@ from session.session_state import SessionState
 
 
 class SessionVersioningTests(unittest.TestCase):
+    @staticmethod
+    def _apply_observable_changes(state: SessionState, ws_enable_session_update: bool):
+        # Canonical versioning must be independent from snapshot emission policy.
+        _ = ws_enable_session_update
+
+        state.set_assignment("athlete_1", "station2", increment_version=True)
+        state.set_reps("athlete_1", 1, increment_version=True)
+        state.set_errors("athlete_1", ["DEPTH_INSUFFICIENT"], increment_version=True)
+
+        # No-op updates should not change version.
+        state.set_assignment("athlete_1", "station2", increment_version=True)
+        state.set_reps("athlete_1", 1, increment_version=True)
+        state.set_errors("athlete_1", ["DEPTH_INSUFFICIENT"], increment_version=True)
+
     def test_version_only_increases_for_observable_changes(self):
         state = SessionState()
         initial_version = state.version
@@ -34,6 +48,27 @@ class SessionVersioningTests(unittest.TestCase):
         rotate_stations(state)
         self.assertEqual(state.version, initial_version + 4)
         self.assertEqual(state.rotation_index, 1)
+
+    def test_versioning_is_identical_with_or_without_session_update_emission(self):
+        state_flag_off = SessionState()
+        state_flag_on = SessionState()
+
+        self._apply_observable_changes(
+            state_flag_off,
+            ws_enable_session_update=False,
+        )
+        self._apply_observable_changes(
+            state_flag_on,
+            ws_enable_session_update=True,
+        )
+
+        self.assertEqual(state_flag_off.version, state_flag_on.version)
+        self.assertEqual(state_flag_off.version, 3)
+
+        rotate_stations(state_flag_off)
+        rotate_stations(state_flag_on)
+        self.assertEqual(state_flag_off.version, state_flag_on.version)
+        self.assertEqual(state_flag_off.rotation_index, state_flag_on.rotation_index)
 
     def test_version_does_not_increase_when_increment_flag_is_false(self):
         state = SessionState()
