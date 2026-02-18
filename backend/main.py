@@ -12,11 +12,9 @@ import time
 import os
 import psutil
 import threading
-import numpy as np
 
 from video.camera_worker import CameraWorker
 from detectors.movenet_inference import MoveNet
-from detectors.keypoints_movenet import choose_side
 from detectors.squat_detector_manager import SquatDetectorManager
 from utils.draw import draw_keypoints, draw_edges, draw_angles
 from utils.draw_feedback import draw_feedback
@@ -28,6 +26,8 @@ from communication.websocket_server import (
 )
 from tracking.tracker_iou import CentroidTracker
 
+from runtime.contracts import IdentityResolution
+from runtime.process_person import process_person
 from session.session_state import SessionState
 from session.session_person_manager import SessionPersonManager
 from session.session_sync import sync_session_state_for_person
@@ -62,13 +62,6 @@ def on_rotate_station(session_person_id: str, station_id: str):
 register_rotate_station_handler(on_rotate_station)
 
 
-def get_centroid(keypoints):
-    visible = [kp[:2] for kp in keypoints if kp[2] > 0.1]  # kp = (x, y, score)
-    if not visible:
-        return np.array([0, 0])
-    return np.mean(visible, axis=0)
-
-
 def main():
     # Inicializar MoveNet
     print("[INFO] Cargando MoveNet...")
@@ -93,6 +86,17 @@ def main():
 
     tracker = CentroidTracker(max_clients=6, distance_threshold=100)
 
+    class RuntimeIdentityResolver:
+        def resolve(self, centroid) -> IdentityResolution:
+            client_id = tracker.get_client_id(centroid)
+            session_person_id = session_manager.resolve_person(client_id, centroid)
+            return IdentityResolution(
+                client_id=client_id,
+                session_person_id=session_person_id,
+            )
+
+    identity_resolver = RuntimeIdentityResolver()
+
     while True:
         if side_queue.empty():
             time.sleep(0.001)
@@ -106,59 +110,50 @@ def main():
         frame_state_changed = False
 
         for idx, person_kp in enumerate(people_s):
-            side = choose_side(person_kp)
-            centroid = get_centroid(person_kp)
-            try:
-                client_id = tracker.get_client_id(centroid)
-                session_person_id = session_manager.resolve_person(client_id, centroid)
-            except RuntimeError:
-                # If there are no available IDs, skip this person
-                continue
-
-            current_client_ids.add(client_id)
-
-            station = session_manager.get_station(session_person_id)
-            print(
-                f"[EXERCISE] {session_person_id} "
-                f"station={station.station_id} "
-                f"exercise={station.exercise} "
-                f"reps={station.reps}"
-            )
-
-            result = {
-                "valid": True,
-                "reps": session_state.reps.get(session_person_id, 0),
-                "errors": [],
-                "angles": {},
-            }
-
-            if station.exercise == "squat":
-                detector = detector_manager.get(session_person_id)
-                print(f"[SESSION] client_id={client_id} -> session_person_id={session_person_id}")
-
-                result = detector.analyze(person_kp)
-
-                # --- Draw feedback ---
+            def render_squat_feedback(*, person_kp, side, result):
                 draw_feedback(
                     frame_s,
                     reps=result.get("reps"),
                     error=result["errors"][0] if result.get("errors") else "",
                 )
-
                 draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
                 draw_edges(frame_s, person_kp)
                 draw_angles(frame_s, person_kp, result.get("angles", {}), side)
 
-            person_changed = sync_session_state_for_person(
+            output = process_person(
+                person_kp,
                 session_state=session_state,
-                session_person_id=session_person_id,
-                station_id=station.station_id,
-                result=result,
-                is_squat_station=(station.exercise == "squat"),
+                identity_resolver=identity_resolver,
+                station_provider=session_manager,
+                detector_provider=detector_manager,
+                sync_state_fn=sync_session_state_for_person,
+                on_squat_feedback=render_squat_feedback,
             )
-            frame_state_changed = frame_state_changed or person_changed
 
-            print(f"[SIDE] Persona {idx}: lado={side}, resultado={result}")
+            if output.skipped:
+                # If there are no available IDs, skip this person
+                continue
+
+            current_client_ids.add(output.client_id)
+
+            print(
+                f"[EXERCISE] {output.session_person_id} "
+                f"station={output.station.station_id} "
+                f"exercise={output.station.exercise} "
+                f"reps={output.station.reps}"
+            )
+            if output.is_squat_station:
+                print(
+                    f"[SESSION] client_id={output.client_id} "
+                    f"-> session_person_id={output.session_person_id}"
+                )
+
+            frame_state_changed = frame_state_changed or output.state_changed
+
+            print(
+                f"[SIDE] Persona {idx}: "
+                f"lado={output.side}, resultado={output.result}"
+            )
 
         if frame_state_changed:
             emit_session_update()
