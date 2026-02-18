@@ -6,7 +6,6 @@ from typing import Dict, Optional
 from enum import Enum
 from .station import Station
 from .session_state import SessionState
-from .station import Station
 
 ALLOWED_IDS = [f"athlete_{i}" for i in range(1, 7)]
 
