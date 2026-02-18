@@ -8,6 +8,8 @@ from communication.websocket_server import (
     register_session_state,
 )
 from runtime.app_runtime import run_app_runtime
+from runtime.perf_monitor import PsutilPerfReporter
+from runtime.visualization import OpenCVFramePresenter, OpenCVKeypressControl
 from session.session_state import SessionState
 from session.session_person_manager import SessionPersonManager
 from config import MAX_PERSONS
@@ -40,6 +42,9 @@ def main():
     run_app_runtime(
         session_state=session_state,
         session_manager=session_manager,
+        frame_presenter=OpenCVFramePresenter(window_name="Side Camera"),
+        runtime_control=OpenCVKeypressControl(quit_key="q", wait_ms=1),
+        perf_reporter=PsutilPerfReporter(label="MAIN"),
     )
 
 

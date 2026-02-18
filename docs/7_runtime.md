@@ -101,8 +101,20 @@ Implementación: `backend/runtime/process_person.py`
 - `backend/main.py` queda como bootstrap y composición (`SessionState`, `SessionPersonManager`, WS).
 - El loop operativo vive en `backend/runtime/app_runtime.py`.
 
-Deuda técnica explícita (trazable):
+Registro histórico de deuda PR7:
 
 - `backend/runtime/app_runtime.py` depende transitivamente de GUI por `cv2.imshow` + `cv2.waitKey`.
 - Esa dependencia aún participa en control de flujo/salida del loop.
 - `TODO(PR8)` definido en código para desacoplar el runtime canónico de GUI y habilitar modo headless real.
+
+## 7.8 Cierre de deuda GUI (PR8)
+
+Estado: deuda de PR7 cerrada.
+
+- El loop canónico (`run_app_runtime`) ya no llama directamente `cv2.waitKey`.
+- Renderizado/control de GUI se encapsulan en adapters:
+  - `backend/runtime/visualization.py` (`OpenCVFramePresenter`, `OpenCVKeypressControl`).
+- Performance se encapsula fuera del core:
+  - `backend/runtime/perf_monitor.py` (`PsutilPerfReporter`).
+- `backend/main.py` decide wiring GUI/perf; el core opera también en headless.
+- Verificación explícita en `backend/tests/test_app_runtime_headless.py`.

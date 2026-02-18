@@ -48,6 +48,14 @@ Cobertura:
 - rotación efectiva incrementa `version` exactamente una vez,
 - rotación preserva cardinalidad 1:1 atleta-estación.
 
+### Archivo: `backend/tests/test_app_runtime_headless.py`
+
+Cobertura:
+
+- ejecución del loop canónico en modo headless (sin dependencia de GUI para correr),
+- cierre explícito de deuda PR7: ausencia de `cv2.waitKey` directo en `run_app_runtime`,
+- actualización de estado canónico en ejecución headless.
+
 ## 8.3 Tests frontend
 
 ### Archivo: `frontend/tests/ws_phase2.test.js`

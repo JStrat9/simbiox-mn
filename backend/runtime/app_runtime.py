@@ -1,28 +1,26 @@
-"""
-Runtime loop orchestration for camera -> pose -> session pipeline.
+"""Runtime loop orchestration for camera -> pose -> session pipeline.
 
-PR7 technical debt (explicit):
-- This loop has a transitive GUI dependency through `cv2.imshow` and
-  `cv2.waitKey` to render/debug and to capture quit input.
-- TODO(PR8): decouple canonical runtime flow from GUI event pumping so the
-  same loop can run headless without `cv2.waitKey`.
+PR8 debt closure:
+- Canonical runtime loop no longer depends directly on OpenCV GUI calls.
+- GUI control/rendering is injected through runtime adapters.
 """
 
 from __future__ import annotations
 
-import os
 import time
 from queue import Queue
-
-import cv2
-import psutil
+from typing import Any, Protocol
 
 from communication.websocket_server import emit_session_update
-from config import CAMERA_SIDE_URL, MOVENET_TFLITE_MODEL
-from detectors.movenet_inference import MoveNet
-from detectors.squat_detector_manager import SquatDetectorManager
+from runtime.perf_monitor import NullPerfReporter, PerfReporter
 from runtime.contracts import IdentityResolution
 from runtime.process_person import process_person
+from runtime.visualization import (
+    HeadlessRuntimeControl,
+    NullFramePresenter,
+    FramePresenter,
+    RuntimeControl,
+)
 from session.session_person_manager import SessionPersonManager
 from session.session_state import SessionState
 from session.session_sync import sync_session_state_for_person
@@ -31,24 +29,52 @@ from utils.draw_feedback import draw_feedback
 from video.camera_worker import CameraWorker
 
 
+class CameraPort(Protocol):
+    def start(self):
+        ...
+
+    def stop(self):
+        ...
+
+
 def run_app_runtime(
     *,
     session_state: SessionState,
     session_manager: SessionPersonManager,
+    frame_presenter: FramePresenter | None = None,
+    runtime_control: RuntimeControl | None = None,
+    perf_reporter: PerfReporter | None = None,
+    side_queue: Queue | None = None,
+    side_camera: CameraPort | None = None,
+    movenet: Any | None = None,
+    detector_manager: Any | None = None,
 ):
-    print("[INFO] Cargando MoveNet...")
-    movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
-    detector_manager = SquatDetectorManager(max_clients=6)
+    if frame_presenter is None:
+        frame_presenter = NullFramePresenter()
+    if runtime_control is None:
+        runtime_control = HeadlessRuntimeControl()
+    if perf_reporter is None:
+        perf_reporter = NullPerfReporter()
+    if side_queue is None:
+        side_queue = Queue(maxsize=1)
+    if movenet is None:
+        from config import MOVENET_TFLITE_MODEL
+        from detectors.movenet_inference import MoveNet
 
-    side_queue = Queue(maxsize=1)
-    side_cam = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
-    side_cam.start()
+        print("[INFO] Cargando MoveNet...")
+        movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
+    if detector_manager is None:
+        from detectors.squat_detector_manager import SquatDetectorManager
+
+        detector_manager = SquatDetectorManager(max_clients=6)
+    if side_camera is None:
+        from config import CAMERA_SIDE_URL
+        from video.camera_worker import CameraWorker
+
+        side_camera = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
+    side_camera.start()
 
     palette = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255)]
-
-    process = psutil.Process(os.getpid())
-    last_print = time.time()
-    frames = 0
 
     print("[INFO] Iniciando loop principal...")
 
@@ -64,6 +90,9 @@ def run_app_runtime(
 
     try:
         while True:
+            if runtime_control.should_stop():
+                break
+
             if side_queue.empty():
                 time.sleep(0.001)
                 continue
@@ -127,23 +156,8 @@ def run_app_runtime(
             print("[DEBUG] people detected:", len(people_s))
             session_manager.release_missing_client_ids(current_client_ids)
 
-            cv2.imshow("Side Camera", frame_s)
-
-            frames += 1
-            now = time.time()
-            if now - last_print >= 1.0:
-                fps = frames / (now - last_print)
-                cpu = psutil.cpu_percent()
-                ram = process.memory_info().rss / 1024 / 1024
-
-                print(f"[PERF][MAIN] fps={fps:.0f} cpu={cpu}% ram={ram:.0f}MB")
-
-                last_print = now
-                frames = 0
-
-            # TODO(PR8): remove GUI-bound control flow dependency from canonical runtime.
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            frame_presenter.present(frame_s)
+            perf_reporter.tick()
     finally:
-        side_cam.stop()
-        cv2.destroyAllWindows()
+        side_camera.stop()
+        frame_presenter.close()

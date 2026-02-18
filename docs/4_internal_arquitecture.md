@@ -68,7 +68,10 @@ Nota de transición:
 - `communication/`, `video/`, `movenet_inference.py` quedan en `infrastructure/`.
 - `main.py` se reduce a `bootstrap` y composición de dependencias.
 - PR7: loop extraído a `backend/runtime/app_runtime.py`.
-- Deuda transitoria PR7->PR8: `app_runtime.py` conserva dependencia GUI (`cv2.waitKey`) documentada con `TODO(PR8)`.
+- PR8: deuda PR7 cerrada. GUI y performance quedan desacopladas del loop canónico:
+  - GUI en `backend/runtime/visualization.py`
+  - Performance en `backend/runtime/perf_monitor.py`
+  - Verificación de cierre en `backend/tests/test_app_runtime_headless.py`
 
 ## 4.2 Principios arquitectónicos
 
