@@ -95,3 +95,14 @@ Implementación: `backend/runtime/process_person.py`
 
 - Existe test de contrato en `backend/tests/test_process_person_contract.py` que verifica que
   sustituir la implementación del resolvedor no rompe el output funcional de `process_person`.
+
+## 7.7 Bootstrap y deuda GUI (PR7)
+
+- `backend/main.py` queda como bootstrap y composición (`SessionState`, `SessionPersonManager`, WS).
+- El loop operativo vive en `backend/runtime/app_runtime.py`.
+
+Deuda técnica explícita (trazable):
+
+- `backend/runtime/app_runtime.py` depende transitivamente de GUI por `cv2.imshow` + `cv2.waitKey`.
+- Esa dependencia aún participa en control de flujo/salida del loop.
+- `TODO(PR8)` definido en código para desacoplar el runtime canónico de GUI y habilitar modo headless real.

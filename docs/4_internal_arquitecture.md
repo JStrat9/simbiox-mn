@@ -67,6 +67,8 @@ Nota de transición:
 - `detectors/`, `tracking/`, `session/`, `feedback/` migran gradualmente a `domain/` + `use_cases/`.
 - `communication/`, `video/`, `movenet_inference.py` quedan en `infrastructure/`.
 - `main.py` se reduce a `bootstrap` y composición de dependencias.
+- PR7: loop extraído a `backend/runtime/app_runtime.py`.
+- Deuda transitoria PR7->PR8: `app_runtime.py` conserva dependencia GUI (`cv2.waitKey`) documentada con `TODO(PR8)`.
 
 ## 4.2 Principios arquitectónicos
 
