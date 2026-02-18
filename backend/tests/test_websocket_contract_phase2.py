@@ -68,6 +68,25 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
             self.assertRegex(athlete_id, r"^athlete_\d+$")
             self.assertFalse(re.match(r"^(person|client|track)_", athlete_id))
 
+    async def test_invalid_json_is_ignored_without_extra_broadcast(self):
+        ws = FakeWebSocket(incoming_messages=["{invalid-json"])
+
+        await websocket_server.handler(ws)
+
+        # Only initial snapshot should be sent.
+        self.assertEqual(len(ws.sent_payloads), 1)
+        self.assertEqual(ws.sent_payloads[0]["type"], "SESSION_UPDATE")
+
+    async def test_unknown_message_type_is_ignored_without_extra_broadcast(self):
+        unknown_msg = json.dumps({"type": "UNKNOWN_EVENT"})
+        ws = FakeWebSocket(incoming_messages=[unknown_msg])
+
+        await websocket_server.handler(ws)
+
+        # Only initial snapshot should be sent.
+        self.assertEqual(len(ws.sent_payloads), 1)
+        self.assertEqual(ws.sent_payloads[0]["type"], "SESSION_UPDATE")
+
 
 if __name__ == "__main__":
     unittest.main()

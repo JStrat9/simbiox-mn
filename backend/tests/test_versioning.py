@@ -71,6 +71,29 @@ class SessionVersioningTests(unittest.TestCase):
 
         self.assertEqual(state.version, initial_version)
 
+    def test_error_normalization_does_not_create_false_observable_change(self):
+        state = SessionState()
+        initial_version = state.version
+
+        state.set_errors(
+            "athlete_1",
+            ["DEPTH_INSUFFICIENT", "DEPTH_INSUFFICIENT"],
+            increment_version=True,
+        )
+        self.assertEqual(state.version, initial_version + 1)
+
+        # Same effective value after normalization -> no increment.
+        state.set_errors("athlete_1", ["DEPTH_INSUFFICIENT"], increment_version=True)
+        self.assertEqual(state.version, initial_version + 1)
+
+    def test_reps_clamp_without_effect_does_not_increase_version(self):
+        state = SessionState()
+        initial_version = state.version
+
+        # athlete_1 starts at 0 reps; clamping -10 to 0 should be a no-op.
+        state.set_reps("athlete_1", -10, increment_version=True)
+        self.assertEqual(state.version, initial_version)
+
 
 if __name__ == "__main__":
     unittest.main()

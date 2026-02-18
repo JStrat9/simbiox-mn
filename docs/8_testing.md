@@ -1,13 +1,13 @@
 # 8️⃣ Testing
 
-## 8.1 Objetivo de PR6
+## 8.1 Objetivo de PR1
 
-Cerrar Fase 2 con cobertura mínima ejecutable para contrato final:
+Blindar contrato e invariantes de Fase 2 antes de refactors de arquitectura:
 
 - validar contrato de `SESSION_UPDATE`,
 - validar monotonicidad de `version`,
 - validar transporte websocket de solo snapshot,
-- validar política frontend replace-only por snapshot.
+- validar que entradas inválidas/no-op no rompen semántica observable.
 
 ## 8.2 Tests backend
 
@@ -25,7 +25,9 @@ Cobertura:
 
 - `version` no incrementa sin cambio observable,
 - `version` incrementa de forma monótona para cambios de dominio,
-- `increment_version=False` mantiene `version` estable.
+- `increment_version=False` mantiene `version` estable,
+- normalización de errores no crea incrementos falsos de `version`,
+- clamping de reps sin efecto no crea incrementos falsos de `version`.
 
 ### Archivo: `backend/tests/test_websocket_contract_phase2.py`
 
@@ -33,7 +35,18 @@ Cobertura:
 
 - conexión inicial emite solo `SESSION_UPDATE`,
 - `ROTATE_STATIONS` emite solo `SESSION_UPDATE`,
-- payload websocket mantiene identidad pública `athlete_X`.
+- payload websocket mantiene identidad pública `athlete_X`,
+- JSON inválido se ignora sin emisiones extra,
+- tipos de mensaje desconocidos se ignoran sin emisiones extra.
+
+### Archivo: `backend/tests/test_main_runtime_contract.py`
+
+Cobertura:
+
+- snapshot mantiene `version/timestamp` estable en no-op observable,
+- snapshot incrementa `version` ante cambio observable,
+- rotación efectiva incrementa `version` exactamente una vez,
+- rotación preserva cardinalidad 1:1 atleta-estación.
 
 ## 8.3 Tests frontend
 
@@ -71,9 +84,9 @@ Lint frontend:
 npm run lint --prefix frontend
 ```
 
-## 8.5 Resultado esperado de PR6
+## 8.5 Resultado esperado de PR1
 
 - Tests backend en verde.
 - Tests frontend en verde.
 - Lint sin errores bloqueantes.
-- Contrato final de Fase 2 validado.
+- Contrato final de Fase 2 endurecido con guardrails de no-op/entradas inválidas.
