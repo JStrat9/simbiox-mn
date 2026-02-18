@@ -24,7 +24,6 @@ from communication.websocket_server import (
     register_rotate_station_handler,
     register_session_state,
 )
-from tracking.tracker_iou import CentroidTracker
 
 from runtime.contracts import IdentityResolution
 from runtime.process_person import process_person
@@ -84,12 +83,9 @@ def main():
 
     print("[INFO] Iniciando loop principal...")
 
-    tracker = CentroidTracker(max_clients=6, distance_threshold=100)
-
     class RuntimeIdentityResolver:
         def resolve(self, centroid) -> IdentityResolution:
-            client_id = tracker.get_client_id(centroid)
-            session_person_id = session_manager.resolve_person(client_id, centroid)
+            client_id, session_person_id = session_manager.resolve_identity(centroid)
             return IdentityResolution(
                 client_id=client_id,
                 session_person_id=session_person_id,
@@ -161,7 +157,7 @@ def main():
         # --- Release missing clients ---
         print(f"[TRACK] active clients this frame: {current_client_ids}")
         print("[DEBUG] people detected:", len(people_s))
-        tracker.release_missing(current_client_ids)
+        session_manager.release_missing_client_ids(current_client_ids)
 
         cv2.imshow("Side Camera", frame_s)
 

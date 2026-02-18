@@ -4,6 +4,8 @@ import time
 import numpy as np
 from typing import Dict, Optional
 from enum import Enum
+
+from tracking.tracker_iou import CentroidTracker
 from .station import Station
 from .session_state import SessionState
 
@@ -43,7 +45,10 @@ class SessionPersonManager:
             self.session_state: SessionState | None = None
 
             self.persons: Dict[str, SessionPerson] = {}
-            # self.next_person_id = 1
+            self.client_tracker = CentroidTracker(
+                max_clients=max_persons,
+                distance_threshold=distance_threshold,
+            )
 
     # ----------------- Person State Management -----------------
     def _update_state(self, now: float):
@@ -57,6 +62,26 @@ class SessionPersonManager:
                 person.state = PersonState.INACTIVE
 
     # ------------ Public API ------------
+    def resolve_identity(self, centroid: np.ndarray) -> tuple[str, str]:
+        """
+        Resolve physical and logical identity for one detection.
+
+        Returns:
+            (client_id, session_person_id)
+
+        Raises:
+            RuntimeError if no client_id or athlete_id can be allocated.
+        """
+        client_id = self.client_tracker.get_client_id(centroid)
+        session_person_id = self.resolve_person(client_id, centroid)
+        return client_id, session_person_id
+
+    def release_missing_client_ids(self, current_ids: set[str]):
+        """
+        Release physical client IDs not seen in current frame.
+        """
+        self.client_tracker.release_missing(current_ids)
+
     def resolve_person(self, client_id: str, centroid: np.ndarray) -> str:
         """
         Decide wich session_person_id does this client_id belong to
