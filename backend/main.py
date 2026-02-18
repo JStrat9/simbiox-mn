@@ -49,10 +49,9 @@ register_session_state(session_state)
 
 def on_rotate_station(session_person_id: str, station_id: str):
     session_manager.assign_station(session_person_id, station_id)
-    session_state.set_assignment(session_person_id, station_id)
 
     print(
-        f"[SESSION][ROTATION] "
+        f"[SESSION][ROTATION_SYNC] "
         f"{session_person_id} -> {station_id}",
         flush=True,
     )

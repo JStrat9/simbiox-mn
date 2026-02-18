@@ -54,6 +54,7 @@ async def handler(websocket, path=None):
             if msg.get("type") == "ROTATE_STATIONS":
                 new_assignments = rotate_stations(session_state)
                 print("[DEBUG ROTATE STATIONS] New assignments:", new_assignments, flush=True)
+                _apply_rotation_to_runtime(new_assignments)
 
                 await broadcast(build_session_update(session_state))
 
@@ -94,6 +95,18 @@ def emit_session_update():
 
     event = build_session_update(session_state)
     asyncio.run_coroutine_threadsafe(broadcast(event), server_loop)
+
+
+def _apply_rotation_to_runtime(assignments: Dict[str, str]):
+    """
+    Keep runtime station view in sync after canonical rotation.
+    """
+    if _rotate_station_handler is None:
+        print("[WS][WARN] rotate station handler not registered", flush=True)
+        return
+
+    for session_person_id, station_id in assignments.items():
+        _rotate_station_handler(session_person_id, station_id)
 
 
 # -----------------------------

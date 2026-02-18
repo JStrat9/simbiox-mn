@@ -33,6 +33,9 @@ class FakeWebSocket:
 class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         websocket_server.connected_clients.clear()
+        websocket_server.register_rotate_station_handler(
+            lambda session_person_id, station_id: None
+        )
         state = SessionState()
         websocket_server.register_session_state(state)
 

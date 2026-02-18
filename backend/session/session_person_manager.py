@@ -184,15 +184,12 @@ class SessionPersonManager:
 
     def assign_station(self, session_person_id: str, station_id: str):
         """
-        Assign a station to a session person and update session_state assignments.
+        Assign a station to a session person runtime view.
         """
         person = self.persons.get(session_person_id)
         if not person:
             return
         person.current_station_id = station_id
-
-        if self.session_state:
-            self.session_state.assignments[session_person_id] = station_id
 
     def get_station(self, session_person_id: str) -> Station:
         """Return the Station object for a session person"""

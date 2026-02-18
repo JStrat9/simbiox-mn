@@ -25,6 +25,16 @@ Sistema activo en **Fase 2 (contrato final)**:
 2. rotación de estaciones (`ROTATE_STATIONS`),
 3. cambios observables en loop principal (reps/errores/asignaciones).
 
+### Ruta única de rotación (PR6)
+
+Al recibir `ROTATE_STATIONS` en WebSocket:
+
+1. Se aplica rotación canónica en `SessionState` (`rotate_stations`).
+2. Se sincroniza la vista runtime de estaciones vía `register_rotate_station_handler(...)`.
+3. Se emite `SESSION_UPDATE` del snapshot actualizado.
+
+La rotación canónica incrementa `version` una sola vez por rotación efectiva.
+
 ## 7.4 Versionado y cambios observables
 
 Regla implementada:
