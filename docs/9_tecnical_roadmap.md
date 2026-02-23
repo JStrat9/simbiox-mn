@@ -70,7 +70,7 @@ Definition of Done:
 - No hay regresión de versionado ni de limpieza replace-only.
 - Tests frontend de versión/proyección en verde.
 
-### PR-F2.1-2 (Migración de `WorkoutBoard` a `snapshot.stations`) - Estado: planned
+### PR-F2.1-2 (Migración de `WorkoutBoard` a `snapshot.stations`) - Estado: completed
 
 - Reemplazar render basado en `STATION_MAP` por render basado en `stations` del store.
 - Conservar metadata visual de atleta como capa de presentación aislada.
