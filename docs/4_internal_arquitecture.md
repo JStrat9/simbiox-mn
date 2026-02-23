@@ -178,12 +178,10 @@ Limitaciones actuales:
 
 ## 4.9 Direccion de evolucion (sin negar el estado real)
 
-Objetivo tecnico recomendado:
+La planificacion incremental y el estado de PRs de evolucion se mantienen en
+`docs/9_tecnical_roadmap.md` como fuente oficial unica para evitar duplicidad.
 
-- Mantener Fase 2 como base contractual.
-- Migrar gradualmente a layout por capas (`domain/use_cases/interfaces/infrastructure`).
-- Normalizar errores a `error_code` estable y mapear texto en frontend.
-- Eliminar mapas de estaciones hardcodeados en UI y consumir `snapshot.stations`.
-- Pasar de logs ad-hoc a logging estructurado.
+Este documento describe estado real as-built, responsabilidades, contrato y
+riesgos vigentes.
 
 Este documento describe el estado real implementado hoy. Cualquier cambio futuro debe actualizar este archivo junto con tests y contrato.

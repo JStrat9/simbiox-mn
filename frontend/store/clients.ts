@@ -1,21 +1,31 @@
 // store/clients.ts
 
 import { create } from "zustand";
-import type { SessionUpdateMessage } from "@/lib/wsTypes";
+import type {
+    SessionStationSnapshot,
+    SessionStations,
+    SessionUpdateMessage,
+    StationId,
+} from "@/lib/wsTypes";
 import {
     buildClientsFromSessionUpdate,
+    buildStationsFromSessionUpdate,
     shouldApplySessionUpdate,
 } from "@/lib/wsPhase1Policy";
 
-type ClientState = {
+export type ClientState = {
     reps: number;
     exercise: string;
     currentErrors: string[];
-    station?: string;
+    station?: StationId;
 };
+
+export type StationState = SessionStationSnapshot;
 
 type ClientsStore = {
     clients: Record<string, ClientState>;
+    stations: SessionStations;
+    sessionHydrated: boolean;
     lastSessionVersion: number | null;
     updateClient: (
         id: string,
@@ -60,8 +70,12 @@ const DEFAULT_CLIENTS: Record<string, ClientState> = {
     },
 };
 
+const DEFAULT_STATIONS: SessionStations = {};
+
 export const useClientsStore = create<ClientsStore>((set) => ({
     clients: DEFAULT_CLIENTS,
+    stations: DEFAULT_STATIONS,
+    sessionHydrated: false,
     lastSessionVersion: null,
     updateClient: (id, data) =>
         set((state) => {
@@ -91,6 +105,10 @@ export const useClientsStore = create<ClientsStore>((set) => ({
                     string,
                     ClientState
                 >,
+                stations: buildStationsFromSessionUpdate(
+                    snapshot,
+                ) as SessionStations,
+                sessionHydrated: true,
                 lastSessionVersion: snapshot.version,
             };
         }),

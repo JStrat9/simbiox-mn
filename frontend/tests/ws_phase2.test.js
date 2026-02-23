@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
     buildClientsFromSessionUpdate,
+    buildStationsFromSessionUpdate,
     shouldApplySessionUpdate,
 } from "../lib/wsPhase1Policy.js";
 
@@ -118,5 +119,57 @@ test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields
         exercise: "Pushup",
         currentErrors: [],
         station: "station2",
+    });
+});
+
+test("buildStationsFromSessionUpdate builds a station catalog from snapshot", () => {
+    const snapshot = {
+        type: "SESSION_UPDATE",
+        version: 20,
+        timestamp: 1730000100,
+        athletes: {},
+        stations: {
+            station1: { exercise: "squat" },
+            station2: { exercise: "pushup" },
+        },
+    };
+
+    const stations = buildStationsFromSessionUpdate(snapshot);
+
+    assert.deepEqual(stations, {
+        station1: { exercise: "squat" },
+        station2: { exercise: "pushup" },
+    });
+});
+
+test("buildStationsFromSessionUpdate does not keep stale stations across snapshots", () => {
+    const firstSnapshot = {
+        type: "SESSION_UPDATE",
+        version: 21,
+        timestamp: 1730000101,
+        athletes: {},
+        stations: {
+            station1: { exercise: "squat" },
+            station9: { exercise: "legacy" },
+        },
+    };
+
+    const secondSnapshot = {
+        type: "SESSION_UPDATE",
+        version: 22,
+        timestamp: 1730000102,
+        athletes: {},
+        stations: {
+            station2: { exercise: "pushup" },
+        },
+    };
+
+    const stationsAfterFirst = buildStationsFromSessionUpdate(firstSnapshot);
+    const stationsAfterSecond = buildStationsFromSessionUpdate(secondSnapshot);
+
+    assert.ok("station9" in stationsAfterFirst);
+    assert.equal("station9" in stationsAfterSecond, false);
+    assert.deepEqual(stationsAfterSecond, {
+        station2: { exercise: "pushup" },
     });
 });

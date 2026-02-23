@@ -1,21 +1,25 @@
+export type AthleteId = string;
+export type StationId = string;
+
+export type SessionAthleteSnapshot = {
+    station_id: StationId | null;
+    reps: number;
+    errors: string[];
+};
+
+export type SessionStationSnapshot = {
+    exercise: string;
+};
+
+export type SessionAthletes = Record<AthleteId, SessionAthleteSnapshot>;
+export type SessionStations = Record<StationId, SessionStationSnapshot>;
+
 export type SessionUpdateMessage = {
     type: "SESSION_UPDATE";
     version: number;
     timestamp: number;
-    athletes: Record<
-        string,
-        {
-            station_id: string | null;
-            reps: number;
-            errors: string[];
-        }
-    >;
-    stations: Record<
-        string,
-        {
-            exercise: string;
-        }
-    >;
+    athletes: SessionAthletes;
+    stations: SessionStations;
 };
 
 export type WSMessage = SessionUpdateMessage;

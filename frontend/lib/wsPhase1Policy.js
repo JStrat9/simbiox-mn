@@ -11,6 +11,20 @@ function humanizeExercise(exercise) {
     return exercise.charAt(0).toUpperCase() + exercise.slice(1);
 }
 
+export function buildStationsFromSessionUpdate(snapshot) {
+    const nextStations = {};
+
+    Object.entries(snapshot.stations || {}).forEach(
+        ([stationId, stationState]) => {
+            nextStations[stationId] = {
+                exercise: stationState?.exercise ?? "",
+            };
+        },
+    );
+
+    return nextStations;
+}
+
 export function buildClientsFromSessionUpdate(snapshot) {
     const nextClients = {};
 
