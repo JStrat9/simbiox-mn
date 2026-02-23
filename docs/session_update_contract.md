@@ -25,12 +25,20 @@ Este documento define el contrato vigente de sincronización de sesión.
     "athlete_1": {
       "station_id": "station1",
       "reps": 14,
-      "errors": ["DEPTH_INSUFFICIENT"]
+      "errors": ["DEPTH_INSUFFICIENT"],
+      "errors_v2": [
+        {
+          "code": "DEPTH_INSUFFICIENT",
+          "severity": "warning",
+          "metadata": {}
+        }
+      ]
     },
     "athlete_2": {
       "station_id": "station2",
       "reps": 11,
-      "errors": []
+      "errors": [],
+      "errors_v2": []
     }
   },
   "stations": {
@@ -46,12 +54,15 @@ Este documento define el contrato vigente de sincronización de sesión.
 - `timestamp`: instante de emisión del snapshot.
 - `athletes`: estado completo por `athlete_X`.
 - `stations`: catálogo de estaciones y ejercicio por estación.
+- `athletes[].errors_v2`: lista estructurada de errores (`code + severity + metadata`).
+- `athletes[].errors`: compatibilidad legacy, derivada de `errors_v2[].code`.
 
 ### 2.3 Reglas de aplicación en frontend
 
 - Aplicar snapshot solo si `incoming.version > lastSessionVersion`.
 - Reemplazar el estado completo de clientes y estaciones a partir del snapshot.
 - Renderizar nombres de ejercicio de la UI de estaciones desde `snapshot.stations`.
+- Priorizar `errors_v2` para consumo tipado; usar `errors` solo como fallback de compatibilidad.
 - Ignorar mensajes de sesión que no pertenezcan al contrato vigente.
 
 ---

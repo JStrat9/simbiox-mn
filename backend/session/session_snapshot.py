@@ -2,6 +2,11 @@
 
 import time
 
+from session.error_normalizer import (
+    build_errors_v2_from_codes,
+    canonicalize_errors_v2,
+    error_codes_from_errors_v2,
+)
 from session.session_state import SessionState
 
 
@@ -22,10 +27,28 @@ def build_session_update(session_state: SessionState) -> dict:
 
     athletes = {}
     for athlete_id in sorted(athlete_ids, key=_athlete_sort_key):
+        raw_errors_v2 = getattr(session_state, "errors_v2", {}).get(athlete_id)
+        if raw_errors_v2:
+            errors_v2 = canonicalize_errors_v2(raw_errors_v2)
+        else:
+            errors_v2 = build_errors_v2_from_codes(
+                session_state.errors.get(athlete_id, [])
+            )
+        # Legacy `errors` remains for compatibility and is derived from `errors_v2`.
+        errors = error_codes_from_errors_v2(errors_v2)
+
         athletes[athlete_id] = {
             "station_id": session_state.assignments.get(athlete_id),
             "reps": int(session_state.reps.get(athlete_id, 0)),
-            "errors": list(session_state.errors.get(athlete_id, [])),
+            "errors": errors,
+            "errors_v2": [
+                {
+                    "code": error["code"],
+                    "severity": error["severity"],
+                    "metadata": dict(error["metadata"]),
+                }
+                for error in errors_v2
+            ],
         }
 
     stations = {

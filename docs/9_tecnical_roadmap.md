@@ -144,7 +144,7 @@ Definition of Done:
 - Dedupe/normalización estable bajo tests.
 - No regressions en `version` por ruido de formato.
 
-### PR-F2.2-2 (Extensión de `SESSION_UPDATE` con `errors_v2`) - Estado: planned
+### PR-F2.2-2 (Extensión de `SESSION_UPDATE` con `errors_v2`) - Estado: completed
 
 - Añadir `athletes[].errors_v2` al snapshot.
 - Mantener `athletes[].errors` legacy como compat temporal, derivado de `errors_v2.code`.

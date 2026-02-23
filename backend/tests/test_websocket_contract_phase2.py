@@ -71,6 +71,27 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
             self.assertRegex(athlete_id, r"^athlete_\d+$")
             self.assertFalse(re.match(r"^(person|client|track)_", athlete_id))
 
+    async def test_transport_includes_errors_v2_and_legacy_errors_derivation(self):
+        ws = FakeWebSocket(incoming_messages=[])
+
+        await websocket_server.handler(ws)
+
+        snapshot = ws.sent_payloads[0]
+        for athlete_id, athlete_data in snapshot["athletes"].items():
+            self.assertIn("errors", athlete_data, athlete_id)
+            self.assertIn("errors_v2", athlete_data, athlete_id)
+            self.assertIsInstance(athlete_data["errors"], list, athlete_id)
+            self.assertIsInstance(athlete_data["errors_v2"], list, athlete_id)
+            self.assertEqual(
+                athlete_data["errors"],
+                [error["code"] for error in athlete_data["errors_v2"]],
+                athlete_id,
+            )
+            for error in athlete_data["errors_v2"]:
+                self.assertIn("code", error, athlete_id)
+                self.assertIn("severity", error, athlete_id)
+                self.assertIn("metadata", error, athlete_id)
+
     async def test_invalid_json_is_ignored_without_extra_broadcast(self):
         ws = FakeWebSocket(incoming_messages=["{invalid-json"])
 

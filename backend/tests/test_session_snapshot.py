@@ -39,15 +39,66 @@ class SessionSnapshotTests(unittest.TestCase):
         self.assertEqual(
             athlete_1["errors"], ["DEPTH_INSUFFICIENT", "KNEE_FORWARD"]
         )
+        self.assertEqual(
+            athlete_1["errors_v2"],
+            [
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "severity": "warning",
+                    "metadata": {},
+                },
+                {"code": "KNEE_FORWARD", "severity": "warning", "metadata": {}},
+            ],
+        )
 
         for athlete_id, athlete_data in snapshot["athletes"].items():
             self.assertIn("station_id", athlete_data, athlete_id)
             self.assertIn("reps", athlete_data, athlete_id)
             self.assertIn("errors", athlete_data, athlete_id)
+            self.assertIn("errors_v2", athlete_data, athlete_id)
             self.assertIsInstance(athlete_data["errors"], list, athlete_id)
+            self.assertIsInstance(athlete_data["errors_v2"], list, athlete_id)
+            self.assertEqual(
+                athlete_data["errors"],
+                [error["code"] for error in athlete_data["errors_v2"]],
+                athlete_id,
+            )
+            for error in athlete_data["errors_v2"]:
+                self.assertIn("code", error, athlete_id)
+                self.assertIn("severity", error, athlete_id)
+                self.assertIn("metadata", error, athlete_id)
 
         for station_id, station_data in snapshot["stations"].items():
             self.assertIn("exercise", station_data, station_id)
+
+    def test_snapshot_derives_legacy_errors_from_errors_v2(self):
+        state = SessionState()
+        state.set_errors_v2(
+            "athlete_1",
+            [
+                {
+                    "code": "KNEE_FORWARD",
+                    "severity": "critical",
+                    "metadata": {"frames": 4},
+                }
+            ],
+            increment_version=False,
+        )
+
+        snapshot = build_session_update(state)
+        athlete_1 = snapshot["athletes"]["athlete_1"]
+
+        self.assertEqual(athlete_1["errors"], ["KNEE_FORWARD"])
+        self.assertEqual(
+            athlete_1["errors_v2"],
+            [
+                {
+                    "code": "KNEE_FORWARD",
+                    "severity": "critical",
+                    "metadata": {"frames": 4},
+                }
+            ],
+        )
 
     def test_snapshot_exposes_only_public_athlete_identity(self):
         state = SessionState()
