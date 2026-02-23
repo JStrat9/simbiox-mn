@@ -50,7 +50,8 @@ Este documento define el contrato vigente de sincronización de sesión.
 ### 2.3 Reglas de aplicación en frontend
 
 - Aplicar snapshot solo si `incoming.version > lastSessionVersion`.
-- Reemplazar el estado completo de clientes a partir del snapshot.
+- Reemplazar el estado completo de clientes y estaciones a partir del snapshot.
+- Renderizar nombres de ejercicio de la UI de estaciones desde `snapshot.stations`.
 - Ignorar mensajes de sesión que no pertenezcan al contrato vigente.
 
 ---

@@ -2,7 +2,7 @@
 
 ## 4.0 Estado vigente
 
-Fecha de corte: 2026-02-19
+Fecha de corte: 2026-02-23
 
 Estado real implementado:
 
@@ -48,7 +48,7 @@ Estado real implementado:
   /lib
     useWebSocket.ts
     wsTypes.ts
-    wsPhase1Policy.js
+    wsSessionPolicy.js
   /store
     clients.ts
   /tests
@@ -163,17 +163,13 @@ Limitaciones actuales:
 - Estado solo in-memory (sin persistencia).
 - `SquatDetector` devuelve mensajes libres de error en texto, no `error_code` estable.
 - Logging mayormente por `print`, sin esquema estructurado unificado.
-- El frontend define nombres de estaciones estaticos, separados del catalogo real de `station_map`.
 
 ## 4.8 Riesgos arquitectonicos vigentes
 
-1. Riesgo de deriva visual vs dominio:
-- UI usa `STATION_MAP` hardcodeado para nombres de ejercicios y puede desalinearse del backend.
-
-2. Riesgo de contrato semantico de errores:
+1. Riesgo de contrato semantico de errores:
 - Mensajes libres en detector dificultan internacionalizacion, analitica y estabilidad del contrato.
 
-3. Riesgo de evolucion:
+2. Riesgo de evolucion:
 - El monolito modular funciona para MVP, pero faltan limites de capas mas estrictos para escalar sin acoplamiento.
 
 ## 4.9 Direccion de evolucion (sin negar el estado real)

@@ -5,7 +5,7 @@ import {
     buildClientsFromSessionUpdate,
     buildStationsFromSessionUpdate,
     shouldApplySessionUpdate,
-} from "../lib/wsPhase1Policy.js";
+} from "../lib/wsSessionPolicy.js";
 
 test("shouldApplySessionUpdate accepts first snapshot and newer versions", () => {
     assert.equal(shouldApplySessionUpdate(null, 1), true);

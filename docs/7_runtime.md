@@ -57,6 +57,7 @@ Casos sin incremento:
 
 - `SESSION_UPDATE` se acepta solo si `version` es superior a la última aplicada.
 - El store se reconstruye desde `snapshot.athletes` + `snapshot.stations`.
+- `WorkoutBoard` renderiza estaciones y nombres de ejercicio desde `snapshot.stations`.
 - No existe fallback funcional por eventos parciales.
 
 ## 7.6 Contrato `process_person` (PR4)

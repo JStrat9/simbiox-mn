@@ -82,7 +82,7 @@ Definition of Done:
 - Los nombres de ejercicio visibles provienen únicamente del snapshot aplicado.
 - Snapshot stale no revierte UI.
 
-### PR-F2.1-3 (Hardening Fase 2 + limpieza documental/técnica) - Estado: planned
+### PR-F2.1-3 (Hardening Fase 2 + limpieza documental/técnica) - Estado: completed
 
 - Consolidar invariantes snapshot-only en frontend (sin lógica funcional legacy).
 - Actualizar documentación para reflejar que la UI de estaciones es snapshot-driven.

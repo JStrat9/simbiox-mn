@@ -34,9 +34,9 @@ class SessionState:
             f"athlete_{i}": [] for i in range(1, 7)
         }
 
-        # TODO: Pasar nombres de estaciones al frontend para evitar hardcodear WorkoutBoard.tsx
+        # Station catalog is exposed to frontend via SESSION_UPDATE.stations.
         self.station_map: dict[str, str] = {
-            "station1": "squat",
+            "station1": "",
             "station2": "pushup",
             "station3": "pullup",
             "station4": "lunges",

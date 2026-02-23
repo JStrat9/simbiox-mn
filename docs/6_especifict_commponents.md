@@ -2,7 +2,7 @@
 
 ## 6.0 Estado de referencia
 
-Fecha de corte: 2026-02-19
+Fecha de corte: 2026-02-23
 
 Este documento describe interfaces y modulos tecnicos vigentes en runtime.
 
@@ -103,7 +103,7 @@ Semantica:
 2. `frontend/lib/wsTypes.ts`
 - Tipado del contrato inbound (snapshot).
 
-3. `frontend/lib/wsPhase1Policy.js`
+3. `frontend/lib/wsSessionPolicy.js`
 - Politica de aplicacion por version y reconstruccion replace-only.
 
 4. `frontend/store/clients.ts`
@@ -145,13 +145,10 @@ Semantica:
 
 ## 6.5 Riesgos tecnicos actuales
 
-1. Deriva entre dominio y UI:
-- Hay nombres de estaciones hardcodeados en frontend.
-
-2. Contrato semantico de errores:
+1. Contrato semantico de errores:
 - Detector usa mensajes libres en lugar de `error_code` estable.
 
-3. Escalabilidad de diseno:
+2. Escalabilidad de diseno:
 - Aun no hay separacion formal completa de capas limpias.
 
 ## 6.6 Criterio de consistencia documental

@@ -11,7 +11,7 @@ import {
     buildClientsFromSessionUpdate,
     buildStationsFromSessionUpdate,
     shouldApplySessionUpdate,
-} from "@/lib/wsPhase1Policy";
+} from "@/lib/wsSessionPolicy";
 
 export type ClientState = {
     reps: number;
