@@ -103,3 +103,88 @@ Definition of Done:
 
 - Orden visual controlado por backend sin ruptura de contrato vigente.
 - Implementación opcional activable sin refactor adicional en frontend.
+
+## 9.5 Plan activo (Fase 2.2): errores estructurados en snapshot
+
+Estado global: **planned**.
+
+Objetivo:
+
+- Mitigar riesgo de errores como texto libre en detector/transporte.
+- Migrar a contrato estructurado mínimo: `code + severity + metadata`.
+- Mantener compatibilidad progresiva con `errors` legacy durante transición.
+- Preservar modelo backend source-of-truth + frontend replace-only por `version`.
+
+Contrato objetivo mínimo (iteración actual):
+
+```json
+"errors_v2": [
+  {
+    "code": "DEPTH_INSUFFICIENT",
+    "severity": "warning",
+    "metadata": {}
+  }
+]
+```
+
+Decisión de alcance:
+
+- `message_key` y `error_contract_version` quedan en backlog para iteración futura (i18n/evolución de esquema).
+
+### PR-F2.2-1 (Backend normalización interna a `errors_v2`) - Estado: completed
+
+- Introducir catálogo de `error_code` estable en backend.
+- Normalizar salida del detector a estructura `code + severity + metadata`.
+- Persistir estado canónico de errores estructurados en sesión.
+- Mantener semántica de versionado sin cambios (solo cambio observable).
+
+Definition of Done:
+
+- Backend deja de depender de texto libre para estado canónico de errores.
+- Dedupe/normalización estable bajo tests.
+- No regressions en `version` por ruido de formato.
+
+### PR-F2.2-2 (Extensión de `SESSION_UPDATE` con `errors_v2`) - Estado: planned
+
+- Añadir `athletes[].errors_v2` al snapshot.
+- Mantener `athletes[].errors` legacy como compat temporal, derivado de `errors_v2.code`.
+- Actualizar tests de contrato websocket/snapshot y documentación de contrato.
+
+Definition of Done:
+
+- Todo `SESSION_UPDATE` válido incluye `errors_v2`.
+- Clientes legacy siguen funcionando con `errors`.
+- Contrato actualizado y testeado.
+
+### PR-F2.2-3 (Frontend dual-read: `errors_v2` primero, fallback legacy) - Estado: planned
+
+- Tipar `errors_v2` en `frontend/lib/wsTypes.ts`.
+- Proyectar estado UI de errores priorizando `errors_v2` y fallback a `errors`.
+- Mantener render actual de UI sin romper revisión/alertas.
+
+Definition of Done:
+
+- Frontend consume snapshots nuevos y legacy sin ruptura.
+- Replace-only + gate por versión permanecen intactos.
+- Tests frontend cubren casos mixtos (`errors_v2`/legacy).
+
+### PR-F2.2-4 (Hardening + limpieza documental/técnica) - Estado: planned
+
+- Consolidar invariantes de errores estructurados en docs técnicas.
+- Eliminar referencias a texto libre como contrato de transporte vigente.
+- Alinear roadmap, arquitectura interna, runtime y contrato de sesión.
+
+Definition of Done:
+
+- Documentación consistente con estado real post-migración.
+- Sin dependencias funcionales activas en strings libres para sincronización.
+- Suites backend/frontend en verde.
+
+### PR-F2.2-5 (Backlog) i18n y versionado de contrato de errores - Estado: backlog
+
+- Introducir `message_key` cuando se active i18n.
+- Introducir `error_contract_version` cuando exista cambio de esquema potencialmente incompatible.
+
+Definition of Done:
+
+- Evolución de contrato de errores controlada sin romper clientes existentes.

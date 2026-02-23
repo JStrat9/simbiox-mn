@@ -17,6 +17,7 @@ def build_session_update(session_state: SessionState) -> dict:
         set(session_state.assignments.keys())
         | set(session_state.reps.keys())
         | set(session_state.errors.keys())
+        | set(getattr(session_state, "errors_v2", {}).keys())
     )
 
     athletes = {}

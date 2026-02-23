@@ -94,6 +94,41 @@ class SessionVersioningTests(unittest.TestCase):
         state.set_reps("athlete_1", -10, increment_version=True)
         self.assertEqual(state.version, initial_version)
 
+    def test_errors_v2_normalization_does_not_create_false_observable_change(self):
+        state = SessionState()
+        initial_version = state.version
+
+        state.set_errors_v2(
+            "athlete_1",
+            [
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "severity": "warning",
+                    "metadata": {},
+                },
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "severity": "warning",
+                    "metadata": {},
+                },
+            ],
+            increment_version=True,
+        )
+        self.assertEqual(state.version, initial_version + 1)
+
+        state.set_errors_v2(
+            "athlete_1",
+            [
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "severity": "warning",
+                    "metadata": {},
+                }
+            ],
+            increment_version=True,
+        )
+        self.assertEqual(state.version, initial_version + 1)
+
 
 if __name__ == "__main__":
     unittest.main()

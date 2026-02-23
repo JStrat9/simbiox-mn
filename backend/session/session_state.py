@@ -1,6 +1,13 @@
 # session_state.py
 
 import time
+from typing import Any, Mapping
+
+from session.error_normalizer import (
+    build_errors_v2_from_codes,
+    canonicalize_errors_v2,
+    error_codes_from_errors_v2,
+)
 
 
 class SessionState:
@@ -33,10 +40,14 @@ class SessionState:
         self.errors: dict[str, list[str]] = {
             f"athlete_{i}": [] for i in range(1, 7)
         }
+        # Athlete -> structured active error list.
+        self.errors_v2: dict[str, list[dict[str, Any]]] = {
+            f"athlete_{i}": [] for i in range(1, 7)
+        }
 
         # Station catalog is exposed to frontend via SESSION_UPDATE.stations.
         self.station_map: dict[str, str] = {
-            "station1": "",
+            "station1": "squat",
             "station2": "pushup",
             "station3": "pullup",
             "station4": "lunges",
@@ -63,8 +74,30 @@ class SessionState:
         self._touch(increment_version=increment_version)
 
     def set_errors(self, athlete_id: str, errors: list[str], increment_version: bool = False):
-        normalized_errors = list(dict.fromkeys(errors or []))
-        if self.errors.get(athlete_id) == normalized_errors:
+        normalized_errors_v2 = build_errors_v2_from_codes(errors or [])
+        normalized_errors = error_codes_from_errors_v2(normalized_errors_v2)
+        if (
+            self.errors.get(athlete_id) == normalized_errors
+            and self.errors_v2.get(athlete_id, []) == normalized_errors_v2
+        ):
             return
+        self.errors[athlete_id] = normalized_errors
+        self.errors_v2[athlete_id] = normalized_errors_v2
+        self._touch(increment_version=increment_version)
+
+    def set_errors_v2(
+        self,
+        athlete_id: str,
+        errors_v2: list[Mapping[str, Any]],
+        increment_version: bool = False,
+    ):
+        normalized_errors_v2 = canonicalize_errors_v2(errors_v2 or [])
+        normalized_errors = error_codes_from_errors_v2(normalized_errors_v2)
+        if (
+            self.errors_v2.get(athlete_id, []) == normalized_errors_v2
+            and self.errors.get(athlete_id, []) == normalized_errors
+        ):
+            return
+        self.errors_v2[athlete_id] = normalized_errors_v2
         self.errors[athlete_id] = normalized_errors
         self._touch(increment_version=increment_version)

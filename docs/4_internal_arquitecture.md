@@ -168,6 +168,7 @@ Limitaciones actuales:
 
 1. Riesgo de contrato semantico de errores:
 - Mensajes libres en detector dificultan internacionalizacion, analitica y estabilidad del contrato.
+- Mitigacion planificada en roadmap: `docs/9_tecnical_roadmap.md` (seccion Fase 2.2).
 
 2. Riesgo de evolucion:
 - El monolito modular funciona para MVP, pero faltan limites de capas mas estrictos para escalar sin acoplamiento.

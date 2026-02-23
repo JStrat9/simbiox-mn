@@ -53,6 +53,7 @@ class SessionSyncTests(unittest.TestCase):
 
         self.assertTrue(changed)
         self.assertEqual(self.state.errors[self.athlete_id], [])
+        self.assertEqual(self.state.errors_v2[self.athlete_id], [])
         self.assertEqual(self.state.version, 1)
 
     def test_squat_valid_updates_reps_and_normalized_errors(self):
@@ -71,6 +72,16 @@ class SessionSyncTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(self.state.reps[self.athlete_id], 3)
         self.assertEqual(self.state.errors[self.athlete_id], ["DEPTH_INSUFFICIENT"])
+        self.assertEqual(
+            self.state.errors_v2[self.athlete_id],
+            [
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "severity": "warning",
+                    "metadata": {},
+                }
+            ],
+        )
         self.assertEqual(self.state.version, 2)
 
         changed_again = sync_session_state_for_person(
@@ -103,6 +114,10 @@ class SessionSyncTests(unittest.TestCase):
         self.assertFalse(changed)
         self.assertEqual(self.state.reps[self.athlete_id], 2)
         self.assertEqual(self.state.errors[self.athlete_id], ["KNEE_FORWARD"])
+        self.assertEqual(
+            self.state.errors_v2[self.athlete_id],
+            [{"code": "KNEE_FORWARD", "severity": "warning", "metadata": {}}],
+        )
         self.assertEqual(self.state.version, 0)
 
 
