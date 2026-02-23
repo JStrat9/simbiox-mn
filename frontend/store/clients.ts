@@ -16,6 +16,7 @@ import {
 export type ClientState = {
     reps: number;
     exercise: string;
+    currentErrorCodes: string[];
     currentErrors: string[];
     station?: StationId;
 };
@@ -41,31 +42,37 @@ const DEFAULT_CLIENTS: Record<string, ClientState> = {
     athlete_1: {
         reps: 0,
         exercise: "",
+        currentErrorCodes: [],
         currentErrors: [],
     },
     athlete_2: {
         reps: 0,
         exercise: "",
+        currentErrorCodes: [],
         currentErrors: [],
     },
     athlete_3: {
         reps: 0,
         exercise: "",
+        currentErrorCodes: [],
         currentErrors: [],
     },
     athlete_4: {
         reps: 0,
         exercise: "",
+        currentErrorCodes: [],
         currentErrors: [],
     },
     athlete_5: {
         reps: 0,
         exercise: "",
+        currentErrorCodes: [],
         currentErrors: [],
     },
     athlete_6: {
         reps: 0,
         exercise: "",
+        currentErrorCodes: [],
         currentErrors: [],
     },
 };
@@ -118,7 +125,7 @@ export const useClientsStore = create<ClientsStore>((set) => ({
             clients: Object.fromEntries(
                 Object.entries(state.clients).map(([id, client]) => [
                     id,
-                    { ...client, currentErrors: [] },
+                    { ...client, currentErrors: [], currentErrorCodes: [] },
                 ]),
             ),
         })),

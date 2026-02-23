@@ -1,10 +1,18 @@
 export type AthleteId = string;
 export type StationId = string;
+export type ErrorSeverity = "info" | "warning" | "critical";
+
+export type SessionErrorV2 = {
+    code: string;
+    severity: ErrorSeverity;
+    metadata: Record<string, unknown>;
+};
 
 export type SessionAthleteSnapshot = {
     station_id: StationId | null;
     reps: number;
     errors: string[];
+    errors_v2?: SessionErrorV2[];
 };
 
 export type SessionStationSnapshot = {

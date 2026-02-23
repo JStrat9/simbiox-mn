@@ -40,11 +40,19 @@ test("buildClientsFromSessionUpdate builds a full replace-only view from snapsho
                 station_id: "station1",
                 reps: 7,
                 errors: ["DEPTH_INSUFFICIENT"],
+                errors_v2: [
+                    {
+                        code: "DEPTH_INSUFFICIENT",
+                        severity: "warning",
+                        metadata: {},
+                    },
+                ],
             },
             athlete_2: {
                 station_id: null,
                 reps: 0,
                 errors: [],
+                errors_v2: [],
             },
         },
         stations: {
@@ -58,16 +66,79 @@ test("buildClientsFromSessionUpdate builds a full replace-only view from snapsho
         athlete_1: {
             reps: 7,
             exercise: "Squat",
+            currentErrorCodes: ["DEPTH_INSUFFICIENT"],
             currentErrors: ["Squat: DEPTH_INSUFFICIENT"],
             station: "station1",
         },
         athlete_2: {
             reps: 0,
             exercise: "",
+            currentErrorCodes: [],
             currentErrors: [],
             station: undefined,
         },
     });
+});
+
+test("buildClientsFromSessionUpdate prioritizes errors_v2 over legacy errors", () => {
+    const snapshot = {
+        type: "SESSION_UPDATE",
+        version: 10,
+        timestamp: 1730000000,
+        athletes: {
+            athlete_1: {
+                station_id: "station1",
+                reps: 7,
+                errors: ["LEGACY_SHOULD_NOT_APPLY"],
+                errors_v2: [
+                    {
+                        code: "DEPTH_INSUFFICIENT",
+                        severity: "warning",
+                        metadata: {},
+                    },
+                ],
+            },
+        },
+        stations: {
+            station1: { exercise: "squat" },
+        },
+    };
+
+    const clients = buildClientsFromSessionUpdate(snapshot);
+
+    assert.deepEqual(clients.athlete_1.currentErrorCodes, [
+        "DEPTH_INSUFFICIENT",
+    ]);
+    assert.deepEqual(clients.athlete_1.currentErrors, [
+        "Squat: DEPTH_INSUFFICIENT",
+    ]);
+});
+
+test("buildClientsFromSessionUpdate falls back to legacy errors when errors_v2 is missing", () => {
+    const snapshot = {
+        type: "SESSION_UPDATE",
+        version: 10,
+        timestamp: 1730000000,
+        athletes: {
+            athlete_1: {
+                station_id: "station1",
+                reps: 7,
+                errors: ["DEPTH_INSUFFICIENT"],
+            },
+        },
+        stations: {
+            station1: { exercise: "squat" },
+        },
+    };
+
+    const clients = buildClientsFromSessionUpdate(snapshot);
+
+    assert.deepEqual(clients.athlete_1.currentErrorCodes, [
+        "DEPTH_INSUFFICIENT",
+    ]);
+    assert.deepEqual(clients.athlete_1.currentErrors, [
+        "Squat: DEPTH_INSUFFICIENT",
+    ]);
 });
 
 test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields", () => {
@@ -80,11 +151,25 @@ test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields
                 station_id: "station1",
                 reps: 5,
                 errors: ["KNEE_FORWARD"],
+                errors_v2: [
+                    {
+                        code: "KNEE_FORWARD",
+                        severity: "warning",
+                        metadata: {},
+                    },
+                ],
             },
             athlete_legacy: {
                 station_id: "station9",
                 reps: 99,
                 errors: ["OLD_ERROR"],
+                errors_v2: [
+                    {
+                        code: "OLD_ERROR",
+                        severity: "warning",
+                        metadata: {},
+                    },
+                ],
             },
         },
         stations: {
@@ -102,6 +187,7 @@ test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields
                 station_id: "station2",
                 reps: 1,
                 errors: [],
+                errors_v2: [],
             },
         },
         stations: {
@@ -117,6 +203,7 @@ test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields
     assert.deepEqual(clientsAfterSecond.athlete_1, {
         reps: 1,
         exercise: "Pushup",
+        currentErrorCodes: [],
         currentErrors: [],
         station: "station2",
     });

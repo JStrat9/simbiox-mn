@@ -156,7 +156,7 @@ Definition of Done:
 - Clientes legacy siguen funcionando con `errors`.
 - Contrato actualizado y testeado.
 
-### PR-F2.2-3 (Frontend dual-read: `errors_v2` primero, fallback legacy) - Estado: planned
+### PR-F2.2-3 (Frontend dual-read: `errors_v2` primero, fallback legacy) - Estado: completed
 
 - Tipar `errors_v2` en `frontend/lib/wsTypes.ts`.
 - Proyectar estado UI de errores priorizando `errors_v2` y fallback a `errors`.

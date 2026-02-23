@@ -11,6 +11,28 @@ function humanizeExercise(exercise) {
     return exercise.charAt(0).toUpperCase() + exercise.slice(1);
 }
 
+function normalizeErrorCode(rawCode) {
+    const safeCode = String(rawCode ?? "").trim();
+    if (!safeCode) return "UNKNOWN_ERROR";
+    return safeCode;
+}
+
+function getErrorCodesForAthlete(athleteState) {
+    if (Array.isArray(athleteState?.errors_v2)) {
+        return athleteState.errors_v2.map((entry) =>
+            normalizeErrorCode(entry?.code),
+        );
+    }
+
+    if (Array.isArray(athleteState?.errors)) {
+        return athleteState.errors.map((errorCode) =>
+            normalizeErrorCode(errorCode),
+        );
+    }
+
+    return [];
+}
+
 export function buildStationsFromSessionUpdate(snapshot) {
     const nextStations = {};
 
@@ -35,13 +57,15 @@ export function buildClientsFromSessionUpdate(snapshot) {
                 ? snapshot.stations?.[stationId]?.exercise ?? ""
                 : "";
             const exercise = humanizeExercise(exerciseRaw);
-            const currentErrors = (athleteState.errors || []).map(
+            const currentErrorCodes = getErrorCodesForAthlete(athleteState);
+            const currentErrors = currentErrorCodes.map(
                 (errorCode) => (exercise ? `${exercise}: ${errorCode}` : errorCode),
             );
 
             nextClients[athleteId] = {
                 reps: athleteState.reps,
                 exercise,
+                currentErrorCodes,
                 currentErrors,
                 station: stationId,
             };
