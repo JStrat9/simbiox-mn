@@ -1,307 +1,204 @@
-# 5️⃣ Dominio / Lógica de Negocio
+# 5 Dominio y Logica de Negocio (Estado Real)
 
-## 5.0 Estado actual vs estado objetivo
+## 5.0 Estado vigente
 
-Este documento distingue entre:
+Fecha de corte: 2026-02-19
 
-- Estado actual (MVP): lo que hoy existe en código.
-- Estado objetivo: contrato de dominio al que queremos converger.
+Este documento describe primero lo implementado hoy y luego la direccion de evolucion.
 
-| Tema | Estado actual (MVP) | Estado objetivo |
+| Tema | Estado vigente (implementado) | Evolucion objetivo |
 |---|---|---|
-| Evento canónico de sesión | Eventos parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED`) | Evento único `SESSION_UPDATE` con estado completo |
-| Versionado de sesión | `rotation_index` existe; `version` global no existe aún | `version` monótona para todo cambio observable |
-| Ciclo de vida de sesión | No hay `status` formal (`ACTIVE`, `PAUSED`, etc.) en runtime | `Session` con ciclo de vida explícito y reglas de transición |
-| Source of truth | Backend mantiene estado autorizado | Igual (invariante permanente) |
+| Evento canonico de sesion | `SESSION_UPDATE` (snapshot completo) | Mantener contrato y ampliar campos sin romper compatibilidad |
+| Versionado de sesion | `version` global monotona por cambio observable | Mantener monotonia con reglas mas formales de concurrencia |
+| Ciclo de vida de sesion | No existe `status` formal (`ACTIVE`, `PAUSED`, `ENDED`) | Introducir ciclo de vida explicito de sesion |
+| Source of truth | Backend en `SessionState` | Mantener backend como fuente unica |
 
-## 5.1 Invariantes globales del sistema
+## 5.1 Invariantes vigentes
 
-### 5.1.1 Invariantes vigentes (hoy)
+1. El backend es la unica fuente de verdad de sesion.
+2. La identidad publica expuesta es `athlete_X`.
+3. Rotacion de estaciones solo se calcula en backend.
+4. El frontend no ejecuta logica biomecanica ni calcula estado canonico.
+5. Todo cambio observable de dominio incrementa `version`.
+6. Cambios no observables (no-op) no incrementan `version`.
 
-1. El backend es la única fuente de verdad del estado de sesión.
-2. La identidad visible hacia frontend es `athlete_X`.
-3. Un atleta solo puede estar asignado a una estación a la vez.
-4. La rotación de estaciones es circular y determinista.
-5. Los errores técnicos no deben decrementar ni reescribir el histórico de repeticiones.
-6. El frontend no calcula reglas biomecánicas ni rotaciones; solo renderiza eventos.
+## 5.2 Modelo de dominio implementado
 
-### 5.1.2 Invariantes objetivo (próxima evolución)
+### 5.2.1 SessionState (agregado canonico en memoria)
 
-1. Toda actualización de sesión se publica como `SESSION_UPDATE` completo y coherente.
-2. Todo cambio observable del dominio incrementa `version` de forma monótona.
-3. No se permite rotación si la sesión no está en `ACTIVE`.
-4. Una sesión no puede iniciar si no tiene estaciones válidas configuradas.
-5. Un frame inválido no modifica estado de dominio persistido.
+Responsabilidad:
 
-## 5.2 Entidades y agregados
+- Mantener asignaciones, reps, errores, mapa de estaciones y versionado.
 
-### Entidad 1: Session (agregado raíz objetivo)
+Estructura principal:
 
-**Descripción:**
-Representa la sesión de entrenamiento y garantiza coherencia global.
-
-**Atributos:**
-
-- `session_id`
-- `status` (`CREATED | ACTIVE | PAUSED | ENDED`) [objetivo]
-- `stations`
-- `athlete_assignments` (`athlete_id -> station_id`)
+- `assignments: athlete_id -> station_id`
+- `reps: athlete_id -> int`
+- `errors: athlete_id -> list[str]`
+- `station_map: station_id -> exercise`
 - `rotation_index`
-- `version` [objetivo]
-- `started_at`, `updated_at`
+- `version`
+- `updated_at`
 
-**Comportamientos:**
+Reglas:
 
-- `start()`
-- `pause()`
-- `end()`
-- `rotate_stations()`
-- `assign_athlete()`
-- `publish_state()`
+- `set_assignment`, `set_reps`, `set_errors` no aplican cambios redundantes.
+- Si hay cambio real y `increment_version=True`, sube `version`.
 
-**Invariantes:**
+### 5.2.2 SessionPersonManager (identidad fisica -> logica)
 
-- No puede estar `ACTIVE` sin estaciones configuradas.
-- Un atleta no puede tener dos estaciones simultáneas.
-- `rotate_stations()` solo ejecuta con sesión habilitada.
+Responsabilidad:
 
-### Entidad 2: AthleteIdentity (lógica de sesión)
+- Resolver continuidad de identidad entre detecciones fisicas y `athlete_X`.
 
-**Descripción:**
-Identidad lógica estable (`athlete_X`) desacoplada del `client_id` físico del tracker.
+Reglas:
 
-**Atributos:**
+- Usa tracker por centroides para `client_id` fisico.
+- Reasigna `athlete_X` por cercania temporal/espacial.
+- No publica IDs fisicos al contrato externo.
 
-- `athlete_id`
-- `current_station_id`
-- `current_exercise`
-- `rep_count`
-- `active_errors`
-- `last_seen_ts`
+### 5.2.3 ExerciseStateMachine (SquatDetector)
 
-**Comportamientos:**
+Responsabilidad:
 
-- `bind_detection(client_id, centroid)`
-- `change_station(station_id)`
-- `register_rep()`
-- `add_error(error_code)`
-- `clear_expired_errors()`
+- Evaluar secuencia biomecanica de squat y producir reps/errores por atleta.
 
-**Invariantes:**
+Estado interno principal:
 
-- `rep_count >= 0`
-- Solo incrementa reps si la máquina de estados valida transición.
-- Cambio de estación solo por caso de uso de sesión.
-
-### Entidad 3: ExerciseStateMachine (Squat)
-
-**Descripción:**
-Autómata determinista que evalúa keypoints y detecta repeticiones válidas.
-
-**Atributos:**
-
-- `current_phase` (`UP | DESCENDING | DOWN | ASCENDING`)
-- `reached_depth`
-- `last_valid_knee_angle`
+- `state` (`up`, `descending`, `down`, `ascending`)
+- `reps`
 - `current_rep_errors`
+- `last_valid_knee_angle`
 
-**Comportamientos:**
+Nota de contrato:
 
-- `evaluate(keypoints)`
-- `transition(phase)`
-- `is_valid_rep()`
-- `collect_errors()`
+- Hoy devuelve errores en texto libre.
+- Objetivo recomendado: pasar a `error_code` estable para transporte.
 
-**Invariantes:**
+### 5.2.4 Station (value object)
 
-- No puede transicionar `UP -> ASCENDING` directamente.
-- Una repetición válida requiere secuencia biomecánica coherente.
-- Las validaciones se hacen sobre keypoints normalizados y umbrales de dominio.
+Responsabilidad:
 
-### Entidad 4: Station (value object)
+- Representar estacion asignada y ejercicio asociado para el atleta logico.
 
-**Descripción:**
-Representa estación y ejercicio asignado.
+## 5.3 Casos de uso vigentes
 
-**Atributos:**
+### 5.3.1 `process_person`
 
-- `station_id`
-- `exercise`
+Input:
 
-**Invariantes:**
+- Keypoints de una persona (`(17,3)`), estado de sesion y dependencias inyectadas.
 
-- `station_id` debe existir en el mapa de estaciones.
-- `exercise` debe pertenecer al catálogo permitido.
+Proceso:
 
-## 5.3 Casos de uso
+1. Resolver identidad logica.
+2. Obtener estacion actual.
+3. Ejecutar detector de ejercicio si aplica.
+4. Sincronizar estado canonico de sesion.
 
-### Caso de uso 1: `process_frame`
+Output:
 
-**Descripción:**
-Procesa detecciones del frame, evalúa biomecánica y produce eventos del dominio.
+- Resultado tipado con `state_changed`, reps/errores y metadatos de procesamiento.
 
-**Input:**
+### 5.3.2 `sync_session_state_for_person`
 
-- `frame_timestamp`
-- Lista de detecciones con identidad lógica (`athlete_id`) y `keypoints`
+Responsabilidad:
 
-**Output (actual):**
+- Aplicar cambios observables de una persona sobre `SessionState`.
 
-- Eventos incrementales (`REP_UPDATE`, `POSE_ERROR`)
+Reglas:
 
-**Output (objetivo):**
+- Cambia asignacion/reps/errores solo si difieren del valor actual.
+- Limpia errores para estaciones no-squat.
+- Devuelve `changed=True/False`.
 
-- `SESSION_UPDATE` completo
+### 5.3.3 `rotate_stations`
 
-**Precondiciones:**
+Input:
 
-1. Sesión inicializada.
-2. Mapeo detección física -> `athlete_X` resuelto.
-3. Keypoints con forma válida para evaluación.
+- Intencion `ROTATE_STATIONS`.
 
-**Postcondiciones:**
+Proceso:
 
-1. Solo atletas con evaluación válida modifican estado.
-2. Si hay cambio observable, se emite evento.
-3. Conteo de reps nunca decrementa por errores técnicos.
+1. Calcular siguiente estacion circular para cada atleta.
+2. Actualizar asignaciones canonicas.
+3. Incrementar `rotation_index` y `version` una vez por rotacion efectiva.
 
-**Flujo:**
+Output:
 
-1. Resolver atleta lógico por detección.
-2. Evaluar `ExerciseStateMachine` del ejercicio activo.
-3. Actualizar reps y errores activos.
-4. Generar eventos de dominio.
-5. Publicar al canal de comunicación.
+- Snapshot `SESSION_UPDATE` publicado por WebSocket.
 
-### Caso de uso 2: `rotate_stations`
+### 5.3.4 `publish_session_update`
 
-**Descripción:**
-Aplica rotación circular de asignaciones atleta-estación.
+Responsabilidad:
 
-**Input:**
+- Construir snapshot completo (`build_session_update`) y emitirlo por WS.
 
-- Comando de intención: `ROTATE_STATIONS`
+Regla:
 
-**Output (actual):**
+- Es el unico canal de sincronizacion de sesion para frontend.
 
-- Evento `STATION_UPDATED` con asignaciones
+## 5.4 Reglas de negocio vigentes
 
-**Output (objetivo):**
+1. `BR-01`: Una rep solo cuenta si la maquina de estados valida transicion.
+2. `BR-02`: Los errores tecnicos no decrementan reps ya contadas.
+3. `BR-03`: Si hay perdida temporal de tracking, se intenta preservar `athlete_X`.
+4. `BR-04`: Frontend solo emite intencion (`ROTATE_STATIONS`), no ejecuta rotacion.
+5. `BR-05`: El transporte no expone `client_id` fisico.
+6. `BR-06`: El frontend aplica snapshots por orden estricto de `version`.
+7. `BR-07`: Input invalido o no-op no debe generar cambio observable de sesion.
 
-- `SESSION_UPDATE` (estado completo + `version` nueva)
+## 5.5 Flujos criticos
 
-**Precondiciones:**
+### 5.5.1 Frame -> evaluacion -> snapshot
 
-1. Existe `station_order` válida.
-2. Todos los atletas activos tienen estación asignada.
-3. (Objetivo) Sesión en `ACTIVE`.
+1. Llega frame.
+2. Se obtienen keypoints.
+3. Se resuelve identidad logica.
+4. Se evalua detector.
+5. Se sincroniza `SessionState`.
+6. Si hubo cambio: se emite `SESSION_UPDATE`.
 
-**Postcondiciones:**
+Salida esperada:
 
-1. Cada atleta queda asignado exactamente a una estación.
-2. `rotation_index` incrementa en `+1`.
-3. La asignación sigue regla circular determinista.
+- Estado coherente por `athlete_X` y version monotona.
 
-**Flujo:**
+### 5.5.2 Rotacion de estaciones
 
-1. Recibir comando de rotación desde WebSocket.
-2. Validar precondiciones de dominio.
-3. Calcular siguiente estación por atleta.
-4. Persistir nuevas asignaciones.
-5. Emitir estado actualizado.
+1. Frontend envia `ROTATE_STATIONS`.
+2. Backend rota asignaciones canonicas.
+3. Runtime sincroniza su vista de estaciones.
+4. Backend publica `SESSION_UPDATE` actualizado.
 
-## 5.4 Reglas de negocio
+Salida esperada:
 
-1. `BR-01`: Una repetición de squat solo cuenta si se detecta transición válida en la máquina de estados.
-2. `BR-02`: El error técnico informa corrección, pero no invalida retrospectivamente reps ya contadas.
-3. `BR-03`: Si se pierde tracking, se preserva identidad lógica mientras esté dentro del umbral de reasignación.
-4. `BR-04`: La rotación es backend-only; frontend solo emite intención.
-5. `BR-05`: No se aceptan IDs externos como identidad canónica (`client_id` no sale del backend).
-6. `BR-06`: Mensajes de dominio deben ser idempotentes respecto a reenvíos/reconexiones cuando aplique.
-7. `BR-07`: Un frame inválido no debe generar incremento de reps.
+- Una sola fuente de rotacion y snapshot consistente.
 
-Catálogo de `error_code` recomendado:
+### 5.5.3 Perdida temporal de tracking
 
-- `DEPTH_INSUFFICIENT` ("No bajas lo suficiente")
-- `TOO_DEEP` ("Baja demasiado")
-- `BACK_ROUNDED` ("Espalda encorvada")
-- `KNEE_FORWARD` ("Rodillas adelantadas")
+1. Tracker pierde deteccion fisica.
+2. `SessionPersonManager` intenta reasignacion por umbral.
+3. Si reasigna correctamente, preserva `athlete_X`.
+4. Si no, evita contaminar estado con identidad incorrecta.
 
-## 5.5 Flujos críticos
+## 5.6 Brechas vigentes y evolucion
 
-### Flujo crítico 1: Frame -> rep -> evento
+Brechas actuales:
 
-**Trigger:** llega un frame con persona detectada en estación de squat.
+- No hay ciclo de vida formal de sesion (`status`).
+- No hay persistencia historica.
+- Errores de detector no estan normalizados a `error_code` estable.
+- Logging aun no es plenamente estructurado.
 
-**Secuencia:**
+Evolucion recomendada:
 
-1. Cámara captura frame.
-2. Percepción genera keypoints.
-3. Tracker resuelve identidad lógica.
-4. `process_frame` evalúa máquina de estados.
-5. Se actualiza rep/error si corresponde.
-6. Se emite evento al frontend.
+1. Normalizar errores a `error_code` + mapping de texto en UI.
+2. Introducir `Session.status` y validaciones de transicion.
+3. Separar con mayor rigor capas `domain/use_cases/interfaces/infrastructure`.
+4. Anadir persistencia opcional para historico y analitica.
 
-**Salida esperada:**
+## 5.7 Referencias
 
-- Conteo coherente por `athlete_X`.
-- Alertas técnicas en tiempo real.
-
-**Falla observable si rompe:**
-
-- Reps incorrectas, feedback tardío o inconsistente.
-
-### Flujo crítico 2: Rotación de estaciones
-
-**Trigger:** recepción de comando `ROTATE_STATIONS`.
-
-**Secuencia:**
-
-1. WebSocket recibe intención.
-2. `rotate_stations` recalcula asignaciones.
-3. `rotation_index` incrementa.
-4. Se publica actualización de estado.
-
-**Salida esperada:**
-
-- Todas las tarjetas de atletas cambian a la estación correcta.
-- No hay duplicados ni huecos inválidos.
-
-**Falla observable si rompe:**
-
-- Dashboard desincronizado y pérdida de confianza del entrenador.
-
-### Flujo crítico 3: Pérdida temporal de tracking
-
-**Trigger:** desaparición parcial del atleta por oclusión/movimiento.
-
-**Secuencia:**
-
-1. Tracker pierde detección puntual.
-2. `SessionPersonManager` intenta reasignación por distancia/tiempo.
-3. Se conserva `athlete_X` si está dentro de umbral.
-4. Si excede umbral, se marca inactivo y evita conteo espurio.
-
-**Salida esperada:**
-
-- Continuidad del conteo sin saltos de identidad.
-
-**Falla observable si rompe:**
-
-- Cambio de identidad entre atletas y contaminación de reps/errores.
-
-## 5.6 Resumen del dominio
-
-El dominio de Simbiox es:
-
-- Determinista
-- Stateful
-- Event-driven en tiempo real
-- Guiado por invariantes fuertes
-- Centrado en backend como fuente única de verdad
-
-El valor estratégico está en:
-
-- Reglas biomecánicas robustas
-- Estabilidad de identidad lógica
-- Coherencia de sesión en tiempo real
+- `docs/invariants.md`
+- `docs/session_update_contract.md`
+- `docs/4_internal_arquitecture.md`

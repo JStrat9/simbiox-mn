@@ -5,6 +5,8 @@ import WorkoutStationCard from "./WorkoutStationCard";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useClientsStore } from "@/store/clients";
 
+// TODO: Estos mapeos podrían venir de session_state.py. En lugar de hardcoderalos
+
 /* ---------------- Mapeos estáticos ---------------- */
 const STATION_MAP: Record<string, string> = {
     station1: "Press pecho inclinado",

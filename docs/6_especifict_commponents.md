@@ -1,22 +1,18 @@
-# 6️⃣ Componentes Específicos
+# 6 Componentes Especificos (Estado Real)
 
 ## 6.0 Estado de referencia
 
-Este documento está alineado con:
+Fecha de corte: 2026-02-19
 
-- `docs/invariants.md` (invariantes por fase)
-- `docs/session_update_contract.md` (transición MVP -> contrato final)
-- `docs/5_domain_&_business_logic.md` (modelo de dominio y casos de uso)
+Este documento describe interfaces y modulos tecnicos vigentes en runtime.
 
----
+## 6.1 Interfaces publicas
 
-## 6.1 Interfaces públicas
+### 6.1.1 Canal principal WebSocket
 
-## 6.1.1 Canal principal: WebSocket
+Endpoint actual:
 
-Dirección actual:
-
-- Backend WS server en `ws://<host>:8765`
+- `ws://<host>:8765`
 
 Mensajes de entrada (frontend -> backend):
 
@@ -24,147 +20,145 @@ Mensajes de entrada (frontend -> backend):
 
 Mensajes de salida (backend -> frontend):
 
-- Fase 0 (MVP):
-  - `REP_UPDATE`
-  - `POSE_ERROR`
-  - `STATION_UPDATED`
-- Fase 1 (doble emisión):
-  - Eventos MVP + `SESSION_UPDATE`
-- Fase 2 (final):
-  - `SESSION_UPDATE` como contrato canónico
+- `SESSION_UPDATE` (unico contrato de sincronizacion de sesion vigente)
 
 Notas:
 
-- No hay API HTTP pública de negocio en el estado actual.
-- La identidad pública en payload es `athlete_X`.
+- No hay API HTTP publica de negocio.
+- La identidad publica en payload es `athlete_X`.
 
-## 6.1.2 Contratos de payload
+### 6.1.2 Contrato de payload vigente
 
-Contrato temporal (MVP):
+Formato base:
 
-- Actualización incremental por evento.
-- Compatibilidad con UI actual basada en parches.
+```json
+{
+  "type": "SESSION_UPDATE",
+  "version": 12,
+  "timestamp": 1730000000,
+  "athletes": {
+    "athlete_1": {
+      "station_id": "station1",
+      "reps": 14,
+      "errors": []
+    }
+  },
+  "stations": {
+    "station1": { "exercise": "squat" }
+  }
+}
+```
 
-Contrato final:
+Semantica:
 
-- Snapshot completo por `SESSION_UPDATE` con `version` monótona.
+- Snapshot completo, no incremental.
+- Aplicacion frontend por version estrictamente creciente.
 
----
-
-## 6.2 Módulos técnicos clave
+## 6.2 Modulos tecnicos clave
 
 ### Backend
 
-1. `backend/detectors/movenet_inference.py`
-   - Wrapper de inferencia de pose (MoveNet).
-   - Rol: percepción (infraestructura AI).
+1. `backend/communication/websocket_server.py`
+- Servidor WS, manejo de conexiones y broadcast.
+- Recibe `ROTATE_STATIONS` y publica `SESSION_UPDATE`.
 
-2. `backend/detectors/squat_detector.py`
-   - Máquina de estados de squat y reglas biomecánicas.
-   - Rol: dominio técnico (reglas de rep/error).
+2. `backend/runtime/app_runtime.py`
+- Loop canonico de ejecucion frame a frame.
+- Dispara publicacion de snapshot cuando detecta cambio observable.
 
-3. `backend/feedback/event_mapper.py`
-   - Convierte resultado por frame en eventos (`REP_UPDATE`, `POSE_ERROR`).
-   - Rol: traducción dominio -> eventos de transporte.
+3. `backend/runtime/process_person.py`
+- Caso de uso por persona detectada.
+- Orquesta identidad, estacion, detector y sincronizacion.
 
 4. `backend/session/session_state.py`
-   - Estado autorizado de sesión (asignaciones, reps, estaciones, rotación).
-   - Rol: fuente de verdad en memoria.
+- Estado de sesion canonico en memoria.
 
-5. `backend/session/session_person_manager.py`
-   - Mapea tracking físico a identidad lógica `athlete_X`.
-   - Rol: continuidad de identidad.
+5. `backend/session/session_sync.py`
+- Reglas de sincronizacion de asignaciones, reps y errores.
 
-6. `backend/session/rotation.py`
-   - Regla de rotación circular de estaciones.
-   - Rol: caso de uso de sesión.
+6. `backend/session/session_snapshot.py`
+- Construye payload `SESSION_UPDATE` desde estado canonico.
 
-7. `backend/tracking/tracker_iou.py`
-   - Tracker por centroides para asignación temporal de IDs físicos.
-   - Rol: infraestructura de tracking.
+7. `backend/session/rotation.py`
+- Rotacion circular backend-only con incremento de `version`.
 
-8. `backend/communication/websocket_server.py`
-   - Servidor WS, recepción de comandos y broadcast.
-   - Rol: interfaz pública en tiempo real.
+8. `backend/session/session_person_manager.py`
+- Continuidad de identidad logica `athlete_X`.
 
-9. `backend/main.py`
-   - Orquestación de runtime (captura, inferencia, dominio, emisión).
-   - Rol: bootstrap MVP.
+9. `backend/detectors/movenet_inference.py`
+- Adapter de inferencia de pose.
+
+10. `backend/detectors/squat_detector.py`
+- Maquina de estados biomecanica para squat.
+
+11. `backend/feedback/event_mapper.py`
+- Telemetria interna por atleta.
+- No produce eventos WS de negocio.
 
 ### Frontend
 
 1. `frontend/lib/useWebSocket.ts`
-   - Cliente WS con reconexión y manejo de eventos.
-   - Rol: integración tiempo real.
+- Cliente WS con reconexion y parseo inbound.
 
-2. `frontend/store/clients.ts`
-   - Estado de UI para tarjetas de atletas.
-   - Rol: proyección local del estado recibido.
+2. `frontend/lib/wsTypes.ts`
+- Tipado del contrato inbound (snapshot).
 
-3. `frontend/components/*`
-   - Render de tablero, tarjetas y feedback visual.
-   - Rol: presentación.
+3. `frontend/lib/wsPhase1Policy.js`
+- Politica de aplicacion por version y reconstruccion replace-only.
 
----
+4. `frontend/store/clients.ts`
+- Store reactivo de clientes basado en `SESSION_UPDATE`.
 
-## 6.3 Decisiones arquitectónicas (ADR resumidas)
+5. `frontend/components/WorkoutBoard.tsx`
+- Render del tablero y emision de `ROTATE_STATIONS`.
+
+## 6.3 Decisiones arquitectonicas vigentes
 
 | Decision | Motivo | Consecuencia |
 |---|---|---|
-| Monolito modular en MVP | Velocidad de iteración y bajo costo operacional | Requiere disciplina de capas para evitar acoplamiento fuerte |
-| WebSocket como canal principal | Sistema reactivo de baja latencia | Necesidad de contratos de eventos estrictos |
-| Identidad logica `athlete_X` separada de tracking fisico | Evitar drift de identidad por oclusion o cambio de centroides | Se necesita `SessionPersonManager` con reglas de reasignacion |
-| Eventos parciales en Fase 0 | Entrega rapida con UI incremental | Riesgo de desincronizacion, mitigado con transicion a `SESSION_UPDATE` |
-| Migracion por fases a contrato canonico | Evitar corte brusco frontend/backend | Fase 1 exige doble emision y prioridad de snapshot |
-| Dominio biomecanico aislado del modelo de pose | Proteger ventaja estrategica y permitir reemplazo de MoveNet | Requiere puertos/adapters en refactor objetivo |
-
----
+| Monolito modular | Iteracion rapida en MVP | Requiere disciplina para controlar acoplamientos |
+| WS como canal principal | Baja latencia y push reactivo | Contrato de mensaje debe ser estricto |
+| Snapshot canonico unico | Evitar desincronizacion por eventos parciales | Frontend opera replace-only por version |
+| Identidad publica `athlete_X` | Aislar tracking fisico del contrato | `SessionPersonManager` se vuelve componente critico |
+| Runtime headless posible | Separar loop de negocio de GUI | `visualization.py` y `perf_monitor.py` quedan como adapters |
 
 ## 6.4 Contratos del sistema
 
-## 6.4.1 Contratos vigentes por fase
+### 6.4.1 Contrato vigente
 
-Fase 0 (actual):
+- Unico contrato funcional de sesion: `SESSION_UPDATE`.
+- `ROTATE_STATIONS` es intencion de entrada, no estado canonico.
 
-- Contrato de eventos parciales:
-  - `REP_UPDATE`
-  - `POSE_ERROR`
-  - `STATION_UPDATED`
+### 6.4.2 Reglas obligatorias
 
-Fase 1 (transicion):
+1. Backend es la fuente de verdad.
+2. Frontend no infiere estado canonico.
+3. Rotacion se calcula solo en backend.
+4. Version monotona por cambio observable.
+5. Solo `athlete_X` se expone al frontend.
 
-- Doble emision:
-  - Eventos parciales + `SESSION_UPDATE`
-- Regla:
-  - Si existe `SESSION_UPDATE`, frontend debe priorizar snapshot completo.
+### 6.4.3 Historial de fases (solo referencia)
 
-Fase 2 (objetivo final):
+- Fase 0: eventos parciales (`REP_UPDATE`, `POSE_ERROR`, `STATION_UPDATED`).
+- Fase 1: coexistencia temporal (parciales + `SESSION_UPDATE`).
+- Fase 2: contrato unico `SESSION_UPDATE` (estado actual).
 
-- Contrato canónico unico:
-  - `SESSION_UPDATE`
+## 6.5 Riesgos tecnicos actuales
 
-## 6.4.2 Reglas de contrato obligatorias
+1. Deriva entre dominio y UI:
+- Hay nombres de estaciones hardcodeados en frontend.
 
-1. Backend es fuente de verdad en todas las fases.
-2. Identidad publica solo `athlete_X`.
-3. Rotacion solo se calcula en backend.
-4. El frontend no aplica logica biomecanica.
-5. En fase final, el estado se sincroniza por snapshot completo versionado.
+2. Contrato semantico de errores:
+- Detector usa mensajes libres en lugar de `error_code` estable.
 
-## 6.4.3 Referencias normativas
+3. Escalabilidad de diseno:
+- Aun no hay separacion formal completa de capas limpias.
 
-- Invariantes: `docs/invariants.md`
-- Contrato de transicion/canonico: `docs/session_update_contract.md`
-- Dominio y reglas: `docs/5_domain_&_business_logic.md`
-- Arquitectura interna: `docs/4_internal_arquitecture.md`
+## 6.6 Criterio de consistencia documental
 
----
+Este documento es consistente si:
 
-## 6.5 Criterio de consistencia documental
-
-Este documento se considera consistente si:
-
-1. No contradice el estado real de runtime (Fase 0 actual).
-2. Mantiene trazabilidad clara hacia Fase 2.
-3. Explicita que la convivencia de contratos en Fase 1 es temporal.
-4. Conserva invariantes permanentes sin excepciones.
+1. Refleja Fase 2 como estado actual.
+2. No presenta fases 0/1 como estado operativo vigente.
+3. Mantiene alineacion con `docs/4_internal_arquitecture.md`.
+4. Mantiene alineacion con `docs/invariants.md` y `docs/session_update_contract.md`.
