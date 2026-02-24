@@ -11,7 +11,10 @@ import time
 from queue import Queue
 from typing import Any, Protocol
 
-from communication.websocket_server import emit_session_update
+from application.ports.session_update_publisher import (
+    NullSessionUpdatePublisher,
+    SessionUpdatePublisher,
+)
 from runtime.perf_monitor import NullPerfReporter, PerfReporter
 from runtime.contracts import IdentityResolution
 from runtime.process_person import process_person
@@ -26,7 +29,6 @@ from session.session_state import SessionState
 from session.session_sync import sync_session_state_for_person
 from utils.draw import draw_angles, draw_edges, draw_keypoints
 from utils.draw_feedback import draw_feedback
-from video.camera_worker import CameraWorker
 
 
 class CameraPort(Protocol):
@@ -48,6 +50,7 @@ def run_app_runtime(
     side_camera: CameraPort | None = None,
     movenet: Any | None = None,
     detector_manager: Any | None = None,
+    session_update_publisher: SessionUpdatePublisher | None = None,
 ):
     if frame_presenter is None:
         frame_presenter = NullFramePresenter()
@@ -55,6 +58,8 @@ def run_app_runtime(
         runtime_control = HeadlessRuntimeControl()
     if perf_reporter is None:
         perf_reporter = NullPerfReporter()
+    if session_update_publisher is None:
+        session_update_publisher = NullSessionUpdatePublisher()
     if side_queue is None:
         side_queue = Queue(maxsize=1)
     if movenet is None:
@@ -150,7 +155,7 @@ def run_app_runtime(
                 )
 
             if frame_state_changed:
-                emit_session_update()
+                session_update_publisher.publish()
 
             print(f"[TRACK] active clients this frame: {current_client_ids}")
             print("[DEBUG] people detected:", len(people_s))

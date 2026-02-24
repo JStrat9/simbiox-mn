@@ -82,6 +82,14 @@ class _PerfSpy(NullPerfReporter):
         self.ticks += 1
 
 
+class _SessionUpdatePublisherSpy:
+    def __init__(self):
+        self.publish_calls = 0
+
+    def publish(self):
+        self.publish_calls += 1
+
+
 class AppRuntimeHeadlessTests(unittest.TestCase):
     def test_headless_runtime_runs_without_gui_and_updates_state(self):
         state = SessionState()
@@ -113,9 +121,40 @@ class AppRuntimeHeadlessTests(unittest.TestCase):
         self.assertEqual(state.reps["athlete_1"], 1)
         self.assertGreaterEqual(state.version, 1)
 
+    def test_headless_runtime_uses_injected_session_update_publisher(self):
+        state = SessionState()
+        manager = SessionPersonManager(max_persons=6, distance_threshold=120.0)
+        manager.session_state = state
+
+        side_queue = Queue(maxsize=1)
+        fake_camera = _FakeCamera(side_queue)
+        presenter = _PresenterSpy()
+        control = _StopAfterFirstPresentedFrame(presenter)
+        perf = _PerfSpy()
+        publisher = _SessionUpdatePublisherSpy()
+
+        run_app_runtime(
+            session_state=state,
+            session_manager=manager,
+            frame_presenter=presenter,
+            runtime_control=control,
+            perf_reporter=perf,
+            side_queue=side_queue,
+            side_camera=fake_camera,
+            movenet=_FakeMoveNet(),
+            detector_manager=_FakeDetectorManager(),
+            session_update_publisher=publisher,
+        )
+
+        self.assertEqual(publisher.publish_calls, 1)
+
     def test_canonical_loop_has_no_direct_waitkey_dependency(self):
         source = inspect.getsource(app_runtime.run_app_runtime)
         self.assertNotIn("cv2.waitKey", source)
+
+    def test_runtime_module_has_no_direct_ws_transport_dependency(self):
+        source = inspect.getsource(app_runtime)
+        self.assertNotIn("communication.websocket_server", source)
 
 
 if __name__ == "__main__":

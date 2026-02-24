@@ -3,6 +3,7 @@ import time
 import threading
 
 from communication.websocket_server import (
+    emit_session_update,
     start_server,
     register_rotate_station_handler,
     register_session_state,
@@ -38,6 +39,11 @@ def on_rotate_station(session_person_id: str, station_id: str):
 register_rotate_station_handler(on_rotate_station)
 
 
+class WebSocketSessionUpdatePublisher:
+    def publish(self) -> None:
+        emit_session_update()
+
+
 def main():
     run_app_runtime(
         session_state=session_state,
@@ -45,6 +51,7 @@ def main():
         frame_presenter=OpenCVFramePresenter(window_name="Side Camera"),
         runtime_control=OpenCVKeypressControl(quit_key="q", wait_ms=1),
         perf_reporter=PsutilPerfReporter(label="MAIN"),
+        session_update_publisher=WebSocketSessionUpdatePublisher(),
     )
 
 
