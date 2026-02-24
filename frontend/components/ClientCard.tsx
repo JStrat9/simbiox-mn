@@ -1,10 +1,12 @@
 "use client";
 // components/ClientCard.tsx
 
+import { getAthleteName } from "@/lib/athleteCatalog";
 import { useClientsStore } from "@/store/clients";
 
 export function ClientCard({ clientId }: { clientId: string }) {
     const client = useClientsStore((s) => s.clients[clientId]);
+    const athleteName = getAthleteName(clientId);
 
     if (!client) return <div className="text-sm">Clients will be here</div>;
 
@@ -12,7 +14,7 @@ export function ClientCard({ clientId }: { clientId: string }) {
 
     return (
         <div className="rounded-xl border border-gray-300 p-4 w-full max-w-[360px] bg-white shadow-lg my-1">
-            <h2 className="text-lg font-semibold"> Cliente {clientId}</h2>
+            <h2 className="text-lg font-semibold"> {athleteName}</h2>
 
             <div className="flex justify-between text-sm mt-2">
                 {/* IZQUIERDA — ERRORES */}

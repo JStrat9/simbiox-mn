@@ -2,17 +2,9 @@
 
 import React from "react";
 import WorkoutStationCard from "./WorkoutStationCard";
+import { getAthleteProfile } from "@/lib/athleteCatalog";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useClientsStore } from "@/store/clients";
-
-const ATHLETE_MAP: Record<string, { name: string; avatarUrl: string }> = {
-    athlete_1: { name: "Joan", avatarUrl: "/joan.jpg" },
-    athlete_2: { name: "Luz", avatarUrl: "/avatars/luz.jpg" },
-    athlete_3: { name: "Gabbi", avatarUrl: "/avatars/gabbi.jpg" },
-    athlete_4: { name: "Sandra", avatarUrl: "/avatars/sandra.jpg" },
-    athlete_5: { name: "Rocío", avatarUrl: "/avatars/rocio.jpg" },
-    athlete_6: { name: "Sele", avatarUrl: "/avatars/sele.jpg" },
-};
 
 const stationNumberFromId = (stationId: string) => {
     const match = stationId.match(/\d+/);
@@ -96,11 +88,11 @@ const WorkoutBoard: React.FC = () => {
                     const athletesForStation = Object.entries(clients)
                         .filter(([, client]) => client.station === stationKey)
                         .map(([id, client]) => {
-                            const meta = ATHLETE_MAP[id];
+                            const athleteProfile = getAthleteProfile(id);
                             return {
                                 id,
-                                name: meta?.name || "Unknown",
-                                avatarUrl: meta?.avatarUrl || "",
+                                name: athleteProfile.name,
+                                avatarUrl: athleteProfile.avatarUrl,
                                 weight: 0,
                                 maxReps: client.reps,
                                 isActive: true,

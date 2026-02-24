@@ -201,3 +201,48 @@ Definition of Done:
 Definition of Done:
 
 - Evolución de contrato de errores controlada sin romper clientes existentes.
+
+## 9.6 Plan activo (Fase 2.3): identidad visual de atleta consistente entre vistas
+
+Estado global: **completed**.
+
+Objetivo:
+
+- Garantizar que `WorkoutBoard` y `ReviewView` rendericen la misma persona para el mismo `athleteId`.
+- Mantener intacto el contrato WS actual (sin cambios en `SESSION_UPDATE`).
+- Preservar invariantes replace-only y de versionado en frontend.
+
+Decisión de arquitectura (opción aplicada):
+
+- Fuente de verdad de identidad visual en frontend: catálogo único `athleteId -> { name, avatarUrl }`.
+- Resolución centralizada mediante helper reutilizable (`getAthleteProfile` / `getAthleteName`).
+- Ambas vistas consumen la misma capa de resolución por `athleteId`.
+
+Invariantes:
+
+- `athleteId` es la clave canónica de identidad en UI.
+- Mismo `athleteId` implica mismo `name`/`avatarUrl` en todas las vistas.
+- `station_id` representa ubicación/rotación, no identidad.
+- Si no existe mapping de `athleteId`, la UI usa fallback estable: `Cliente desconocido`.
+
+### PR-F2.3-1 (Catálogo frontend único + consumo en vistas) - Estado: completed
+
+- Crear módulo compartido de catálogo de atletas en frontend.
+- Eliminar mapa local duplicado en `WorkoutBoard`.
+- Hacer que `ClientCard` (usado por `ReviewView`) renderice nombre humano desde el mismo catálogo.
+- Mantener contrato de transporte y store sin cambios estructurales.
+
+Definition of Done:
+
+- No hay fuentes duplicadas de nombre/avatar entre `WorkoutBoard` y `ReviewView`.
+- `athleteId` resuelve a la misma identidad visual en ambas pantallas.
+- Lint/test de frontend sin regresiones funcionales.
+
+### PR-F2.3-2 (Backlog) identidad provista por backend/API - Estado: backlog
+
+- Evaluar migración de `name/avatar` al contrato WS o a un directorio de atletas.
+- Mantener enfoque aditivo y backward compatible para no romper clientes existentes.
+
+Definition of Done:
+
+- Identidad visual deja de estar hardcodeada en frontend sin pérdida de consistencia cross-view.
