@@ -24,6 +24,10 @@ class SessionSnapshotTests(unittest.TestCase):
 
         snapshot = build_session_update(state)
 
+        self.assertEqual(
+            set(snapshot.keys()),
+            {"type", "version", "timestamp", "athletes", "stations"},
+        )
         self.assertEqual(snapshot["type"], "SESSION_UPDATE")
         self.assertIsInstance(snapshot["version"], int)
         self.assertGreaterEqual(snapshot["version"], 1)
@@ -58,6 +62,11 @@ class SessionSnapshotTests(unittest.TestCase):
         )
 
         for athlete_id, athlete_data in snapshot["athletes"].items():
+            self.assertEqual(
+                set(athlete_data.keys()),
+                {"station_id", "reps", "errors", "errors_v2"},
+                athlete_id,
+            )
             self.assertIn("station_id", athlete_data, athlete_id)
             self.assertIn("reps", athlete_data, athlete_id)
             self.assertIn("errors", athlete_data, athlete_id)
@@ -76,6 +85,7 @@ class SessionSnapshotTests(unittest.TestCase):
                 self.assertIn("metadata", error, athlete_id)
 
         for station_id, station_data in snapshot["stations"].items():
+            self.assertEqual(set(station_data.keys()), {"exercise"}, station_id)
             self.assertIn("exercise", station_data, station_id)
 
     def test_snapshot_derives_legacy_errors_from_errors_v2(self):

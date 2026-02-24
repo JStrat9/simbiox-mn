@@ -45,9 +45,14 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
         await websocket_server.handler(ws)
 
         self.assertEqual(len(ws.sent_payloads), 1)
-        self.assertEqual(ws.sent_payloads[0]["type"], "SESSION_UPDATE")
-        self.assertNotIn("assignments", ws.sent_payloads[0])
-        self.assertNotIn("rotation", ws.sent_payloads[0])
+        snapshot = ws.sent_payloads[0]
+        self.assertEqual(snapshot["type"], "SESSION_UPDATE")
+        self.assertEqual(
+            set(snapshot.keys()),
+            {"type", "version", "timestamp", "athletes", "stations"},
+        )
+        self.assertNotIn("assignments", snapshot)
+        self.assertNotIn("rotation", snapshot)
 
     async def test_rotate_stations_broadcasts_only_session_update(self):
         rotate_msg = json.dumps({"type": "ROTATE_STATIONS"})
@@ -77,7 +82,16 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
         await websocket_server.handler(ws)
 
         snapshot = ws.sent_payloads[0]
+        self.assertEqual(
+            set(snapshot.keys()),
+            {"type", "version", "timestamp", "athletes", "stations"},
+        )
         for athlete_id, athlete_data in snapshot["athletes"].items():
+            self.assertEqual(
+                set(athlete_data.keys()),
+                {"station_id", "reps", "errors", "errors_v2"},
+                athlete_id,
+            )
             self.assertIn("errors", athlete_data, athlete_id)
             self.assertIn("errors_v2", athlete_data, athlete_id)
             self.assertIsInstance(athlete_data["errors"], list, athlete_id)
@@ -92,6 +106,8 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("message_key", error, athlete_id)
                 self.assertIn("severity", error, athlete_id)
                 self.assertIn("metadata", error, athlete_id)
+        for station_id, station_data in snapshot["stations"].items():
+            self.assertEqual(set(station_data.keys()), {"exercise"}, station_id)
 
     async def test_invalid_json_is_ignored_without_extra_broadcast(self):
         ws = FakeWebSocket(incoming_messages=["{invalid-json"])

@@ -246,3 +246,286 @@ Definition of Done:
 Definition of Done:
 
 - Identidad visual deja de estar hardcodeada en frontend sin pérdida de consistencia cross-view.
+
+## 9.7 Plan activo (Fase 2.4): limites de capas para mitigar Riesgo 2 (evolucion)
+
+Estado global: **in_progress**.
+
+Objetivo:
+
+- Mitigar el Riesgo 2 de evolucion definido en `docs/4_internal_arquitecture.md` (monolito modular con limites de capa insuficientes).
+- Definir limites de capas mas estrictos sin romper contrato Fase 2 ni runtime actual.
+- Mantener `SESSION_UPDATE` como unico evento canonico y preservar modelo snapshot replace-only.
+- Ejecutar refactor incremental por PRs pequenos, sin big bang y sin introducir persistencia.
+
+Arquitectura target (sin persistencia en esta fase):
+
+```text
+/backend
+  /domain
+    /session
+      session_state.py
+      rotation_policy.py
+      sync_policy.py
+    /errors
+      error_catalog.py
+      error_normalizer.py
+  /application
+    /ports
+      session_update_publisher.py
+      runtime_station_sync.py
+      identity_resolver.py
+      detector_provider.py
+    /use_cases
+      process_person_uc.py
+      rotate_stations_uc.py
+    /projections
+      session_update_projection.py
+  /interfaces
+    /runtime
+      app_runtime_loop.py
+    /ws
+      ws_command_handler.py
+  /infrastructure
+    /transport
+      websocket_server.py
+    /vision
+      movenet_adapter.py
+      detector_adapter.py
+      camera_adapter.py
+      presenter_adapter.py
+  main.py
+```
+
+Reglas de capa target:
+
+- `domain` no importa `websockets`, `cv2`, `video/*`, `communication/*`.
+- `application` orquesta casos de uso y solo depende de puertos + dominio.
+- `interfaces/infrastructure` adaptan IO (WS, camara, inferencia, GUI) y delegan a `application`.
+- `main.py` es el unico composition root.
+
+### PR-F2.4-1 (Baseline + guardrails de comportamiento) - Estado: completed
+
+Objetivo:
+
+- Congelar comportamiento funcional antes de mover responsabilidades.
+
+Cambios concretos:
+
+- Registrar ADR tecnica de Fase 2.4 en docs con limites de capa objetivo.
+- Endurecer tests de contrato/versionado como red de seguridad para refactor.
+- Crear estructura de carpetas target vacia (sin mover logica aun).
+
+Entrega ejecutada:
+
+- ADR creada: `docs/adr/ADR-F2.4-layer-boundaries-baseline.md`.
+- Guardrails reforzados en tests:
+- `backend/tests/test_session_snapshot.py` (shape top-level y shape de atletas/estaciones).
+- `backend/tests/test_websocket_contract_phase2.py` (shape top-level de transporte y shape de atletas/estaciones).
+- Estructura target creada en backend (placeholders `.gitkeep`):
+- `backend/domain/{session,errors}`
+- `backend/application/{ports,use_cases,projections}`
+- `backend/interfaces/{runtime,ws}`
+- `backend/infrastructure/{transport,vision}`
+
+Modulos (mover/envolver/redefinir):
+
+- Mover: ninguno.
+- Envolver: ninguno.
+- Redefinir: ninguno (solo docs + tests + estructura).
+
+Riesgo de transicion:
+
+- Tests demasiado acoplados a detalles no funcionales (orden/timestamp exacto).
+- Mitigacion: aserciones semanticas y fixtures canonicos de contrato.
+
+Definition of Done:
+
+- Suite backend/frontend vigente en verde.
+- Sin cambios en payload `SESSION_UPDATE`.
+- Estructura de carpetas Fase 2.4 creada y documentada.
+
+### PR-F2.4-2 (Desacople runtime -> transporte WS por puerto de emision) - Estado: backlog
+
+Objetivo:
+
+- Eliminar dependencia directa de `runtime/app_runtime.py` sobre `communication/websocket_server.emit_session_update`.
+
+Cambios concretos:
+
+- Introducir puerto/callback de emision de snapshot en loop runtime.
+- Inyectar adapter concreto desde `main.py` hacia emisor WS actual.
+- Mantener compatibilidad temporal para no romper bootstrap.
+
+Modulos (mover/envolver/redefinir):
+
+- Redefinir `backend/runtime/app_runtime.py` (firma e inyeccion).
+- Envolver `backend/communication/websocket_server.py::emit_session_update` como adapter de infraestructura.
+- Ajustar wiring en `backend/main.py`.
+
+Riesgo de transicion:
+
+- Emision duplicada o perdida por wiring incorrecto.
+- Mitigacion: test de contrato "1 cambio observable -> 1 snapshot emitido".
+
+Definition of Done:
+
+- `run_app_runtime` no importa emisor WS directo.
+- Emision sigue ocurriendo solo ante cambio observable.
+- Tests de runtime headless y contrato en verde.
+
+### PR-F2.4-3 (Caso de uso de rotacion fuera del servidor WS) - Estado: backlog
+
+Objetivo:
+
+- Separar la logica de negocio `ROTATE_STATIONS` del adapter de transporte.
+
+Cambios concretos:
+
+- Crear `application/use_cases/rotate_stations_uc.py` para:
+- aplicar rotacion canonica,
+- sincronizar vista runtime de estaciones via puerto,
+- retornar snapshot listo para publicar.
+- Dejar `communication/websocket_server.py` como handler de transporte (parseo, routing, envio).
+
+Modulos (mover/envolver/redefinir):
+
+- Mover logica desde `backend/communication/websocket_server.py` a `application/use_cases/rotate_stations_uc.py`.
+- Envolver handler WS actual para delegar al caso de uso.
+- Mantener `backend/session/rotation.py` como politica de dominio en esta etapa.
+
+Riesgo de transicion:
+
+- Doble mutacion de `SessionState` y salto incorrecto de `version`.
+- Mitigacion: tests de monotonicidad y de no-duplicacion de eventos.
+
+Definition of Done:
+
+- `websocket_server` no contiene logica de negocio de rotacion.
+- `ROTATE_STATIONS` sigue publicando exclusivamente `SESSION_UPDATE`.
+- Tests de integracion de rotacion/runtime en verde.
+
+### PR-F2.4-4 (Proyeccion de `SESSION_UPDATE` en capa application) - Estado: backlog
+
+Objetivo:
+
+- Aislar la construccion del contrato de salida en una capa explicita de proyeccion.
+
+Cambios concretos:
+
+- Mover `build_session_update` a `application/projections/session_update_projection.py`.
+- Dejar `session/session_snapshot.py` como wrapper de compatibilidad temporal.
+- Centralizar reglas de orden de atletas y derivacion `errors <- errors_v2`.
+
+Modulos (mover/envolver/redefinir):
+
+- Mover logica desde `backend/session/session_snapshot.py`.
+- Envolver `backend/session/session_snapshot.py` como shim.
+- Actualizar imports en WS/runtime para usar proyeccion application.
+
+Riesgo de transicion:
+
+- Drift en shape de payload o en orden determinista de atletas.
+- Mitigacion: tests de contrato con snapshots esperados.
+
+Definition of Done:
+
+- Proyeccion de snapshot localizada en `application/projections`.
+- Payload emitido permanece backward compatible Fase 2.
+- Tests de snapshot/contrato WS en verde.
+
+### PR-F2.4-5 (Extraccion de nucleo de dominio con shims) - Estado: backlog
+
+Objetivo:
+
+- Formalizar dominio de sesion/errores sin romper imports existentes.
+
+Cambios concretos:
+
+- Mover a `domain`:
+- `session_state.py`,
+- `rotation.py` (renombrado interno a `rotation_policy.py`),
+- `session_sync.py` (renombrado interno a `sync_policy.py`),
+- `error_catalog.py`,
+- `error_normalizer.py`.
+- Mantener wrappers de compatibilidad en `backend/session/*` durante transicion.
+
+Modulos (mover/envolver/redefinir):
+
+- Mover `backend/session/session_state.py`.
+- Mover `backend/session/rotation.py`.
+- Mover `backend/session/session_sync.py`.
+- Mover `backend/session/error_catalog.py`.
+- Mover `backend/session/error_normalizer.py`.
+- Envolver `backend/session/*` como re-export/shim temporal.
+
+Riesgo de transicion:
+
+- Ciclos de import o rutas mixtas durante migracion gradual.
+- Mitigacion: migrar en orden (errores -> estado -> politicas) y validar por PR.
+
+Definition of Done:
+
+- Dominio aislado en `backend/domain/*` con API estable.
+- Sin cambios de comportamiento en versionado/errores.
+- Tests unitarios de dominio en verde.
+
+### PR-F2.4-6 (Use case de procesamiento de persona en application) - Estado: backlog
+
+Objetivo:
+
+- Convertir el loop runtime en adapter y mover la orquestacion de negocio de persona a `application`.
+
+Cambios concretos:
+
+- Mover `runtime/process_person.py` a `application/use_cases/process_person_uc.py`.
+- Reubicar contratos de puertos de proceso (`identity`, `station`, `detector`, `sync`) en `application/ports`.
+- Mantener `runtime/app_runtime.py` enfocado en loop de frames + adaptadores IO.
+
+Modulos (mover/envolver/redefinir):
+
+- Mover `backend/runtime/process_person.py`.
+- Redefinir `backend/runtime/contracts.py` hacia puertos de `application`.
+- Envolver imports legacy para transicion segura.
+
+Riesgo de transicion:
+
+- Incompatibilidades de interfaces con detector manager o session manager.
+- Mitigacion: adapters explicitos + tests de contrato de `process_person`.
+
+Definition of Done:
+
+- Caso de uso de procesamiento de persona ubicado en `application/use_cases`.
+- Runtime no contiene logica de negocio mas alla de orquestacion de loop.
+- Tests de `process_person` y runtime headless en verde.
+
+### PR-F2.4-7 (Enforcement de limites de capa + limpieza final) - Estado: backlog
+
+Objetivo:
+
+- Hacer verificables los limites de capa y consolidar cierre de Fase 2.4.
+
+Cambios concretos:
+
+- Agregar tests de arquitectura/import boundaries (por AST o linter de imports).
+- Definir reglas explicitas:
+- `domain` no depende de infraestructura,
+- `application` no depende de WS/OpenCV/camaras.
+- Consolidar `main.py` como composition root unico.
+- Marcar shims legacy como deprecados para retiro posterior.
+
+Modulos (mover/envolver/redefinir):
+
+- Redefinir pipeline de tests para incluir checks de capas.
+- Envolver modulos legacy con advertencias de deprecacion controladas.
+
+Riesgo de transicion:
+
+- Falsos positivos de reglas de import en CI.
+- Mitigacion: allowlist minima temporal y ajuste incremental por PR.
+
+Definition of Done:
+
+- Checks de arquitectura en verde en CI local/proyecto.
+- Contrato Fase 2 (`SESSION_UPDATE` snapshot-only) intacto.
+- Suites backend/frontend en verde tras limpieza final.
