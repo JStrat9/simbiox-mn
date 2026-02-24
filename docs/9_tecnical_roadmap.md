@@ -430,7 +430,7 @@ Definition of Done:
 - `ROTATE_STATIONS` sigue publicando exclusivamente `SESSION_UPDATE`.
 - Tests de integracion de rotacion/runtime en verde.
 
-### PR-F2.4-4 (Proyeccion de `SESSION_UPDATE` en capa application) - Estado: backlog
+### PR-F2.4-4 (Proyeccion de `SESSION_UPDATE` en capa application) - Estado: completed
 
 Objetivo:
 
@@ -441,6 +441,19 @@ Cambios concretos:
 - Mover `build_session_update` a `application/projections/session_update_projection.py`.
 - Dejar `session/session_snapshot.py` como wrapper de compatibilidad temporal.
 - Centralizar reglas de orden de atletas y derivacion `errors <- errors_v2`.
+
+Entrega ejecutada:
+
+- Proyeccion creada: `backend/application/projections/session_update_projection.py`.
+- `backend/session/session_snapshot.py` convertido en shim de compatibilidad:
+- mantiene API `build_session_update(...)`.
+- delega internamente en `build_session_update_projection(...)`.
+- Imports productivos migrados a la capa de proyeccion:
+- `backend/communication/websocket_server.py`.
+- `backend/application/use_cases/rotate_stations_uc.py`.
+- Tests agregados/actualizados:
+- `backend/tests/test_session_snapshot_shim.py` (equivalencia shim vs proyeccion).
+- `backend/tests/test_rotation_runtime_integration.py` (guardrail de import de proyeccion en WS).
 
 Modulos (mover/envolver/redefinir):
 

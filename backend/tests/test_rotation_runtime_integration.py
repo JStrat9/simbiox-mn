@@ -44,6 +44,8 @@ class RotationRuntimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         source = inspect.getsource(websocket_server)
         self.assertIn("rotate_stations_use_case", source)
         self.assertNotIn("from session.rotation import rotate_stations", source)
+        self.assertIn("build_session_update_projection", source)
+        self.assertNotIn("from session.session_snapshot import build_session_update", source)
 
     async def test_rotate_calls_runtime_handler_for_each_assignment(self):
         calls: list[tuple[str, str]] = []

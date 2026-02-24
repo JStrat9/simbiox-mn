@@ -7,9 +7,11 @@ import websockets
 
 from typing import Dict, Set
 
+from application.projections.session_update_projection import (
+    build_session_update_projection,
+)
 from application.ports.runtime_station_sync import RuntimeStationSyncPort
 from application.use_cases.rotate_stations_uc import rotate_stations_use_case
-from session.session_snapshot import build_session_update
 from session.session_state import SessionState
 
 
@@ -40,7 +42,7 @@ async def handler(websocket, path=None):
     )
     connected_clients.add(websocket)
 
-    await websocket.send(json.dumps(build_session_update(session_state)))
+    await websocket.send(json.dumps(build_session_update_projection(session_state)))
 
     try:
         async for message in websocket:
@@ -95,7 +97,7 @@ def emit_session_update():
         print("[WS] emit_session_update: server_loop not ready", flush=True)
         return
 
-    event = build_session_update(session_state)
+    event = build_session_update_projection(session_state)
     asyncio.run_coroutine_threadsafe(broadcast(event), server_loop)
 
 
