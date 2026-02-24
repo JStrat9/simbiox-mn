@@ -11,7 +11,7 @@ from communication.websocket_server import (
 from runtime.app_runtime import run_app_runtime
 from runtime.perf_monitor import PsutilPerfReporter
 from runtime.visualization import OpenCVFramePresenter, OpenCVKeypressControl
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 from session.session_person_manager import SessionPersonManager
 from config import MAX_PERSONS
 

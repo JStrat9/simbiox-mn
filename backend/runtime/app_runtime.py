@@ -15,6 +15,8 @@ from application.ports.session_update_publisher import (
     NullSessionUpdatePublisher,
     SessionUpdatePublisher,
 )
+from domain.session.session_state import SessionState
+from domain.session.sync_policy import sync_session_state_for_person
 from runtime.perf_monitor import NullPerfReporter, PerfReporter
 from runtime.contracts import IdentityResolution
 from runtime.process_person import process_person
@@ -25,8 +27,6 @@ from runtime.visualization import (
     RuntimeControl,
 )
 from session.session_person_manager import SessionPersonManager
-from session.session_state import SessionState
-from session.session_sync import sync_session_state_for_person
 from utils.draw import draw_angles, draw_edges, draw_keypoints
 from utils.draw_feedback import draw_feedback
 

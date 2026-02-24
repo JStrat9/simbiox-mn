@@ -5,7 +5,7 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 
 import numpy as np
 
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 from session.station import Station
 
 

@@ -6,8 +6,8 @@ from application.projections.session_update_projection import (
     build_session_update_projection,
 )
 from application.ports.runtime_station_sync import RuntimeStationSyncPort
-from session.rotation import rotate_stations
-from session.session_state import SessionState
+from domain.session.rotation_policy import rotate_stations
+from domain.session.session_state import SessionState
 
 
 def _sync_runtime_stations(

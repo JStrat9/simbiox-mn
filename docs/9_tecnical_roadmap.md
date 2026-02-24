@@ -472,7 +472,7 @@ Definition of Done:
 - Payload emitido permanece backward compatible Fase 2.
 - Tests de snapshot/contrato WS en verde.
 
-### PR-F2.4-5 (Extraccion de nucleo de dominio con shims) - Estado: backlog
+### PR-F2.4-5 (Extraccion de nucleo de dominio con shims) - Estado: completed
 
 Objetivo:
 
@@ -487,6 +487,24 @@ Cambios concretos:
 - `error_catalog.py`,
 - `error_normalizer.py`.
 - Mantener wrappers de compatibilidad en `backend/session/*` durante transicion.
+
+Entrega ejecutada:
+
+- Nucleo movido a `backend/domain/*`:
+- `backend/domain/errors/error_catalog.py`
+- `backend/domain/errors/error_normalizer.py`
+- `backend/domain/session/session_state.py`
+- `backend/domain/session/rotation_policy.py`
+- `backend/domain/session/sync_policy.py`
+- Shims de compatibilidad implementados en `backend/session/*`:
+- `session/error_catalog.py`
+- `session/error_normalizer.py`
+- `session/session_state.py`
+- `session/rotation.py`
+- `session/session_sync.py`
+- Imports productivos migrados a `domain/*` en capas runtime/application/communication/main.
+- Guardrails de shim agregados:
+- `backend/tests/test_domain_shims.py` (equivalencia de referencias shim -> domain).
 
 Modulos (mover/envolver/redefinir):
 

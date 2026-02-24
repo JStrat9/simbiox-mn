@@ -1,7 +1,7 @@
 from application.projections.session_update_projection import (
     build_session_update_projection,
 )
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 
 
 def build_session_update(session_state: SessionState) -> dict:

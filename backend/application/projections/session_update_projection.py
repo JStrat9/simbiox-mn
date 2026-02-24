@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import time
 
-from session.error_normalizer import (
+from domain.errors.error_normalizer import (
     build_errors_v2_from_codes,
     canonicalize_errors_v2,
     error_codes_from_errors_v2,
 )
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 
 
 def _athlete_sort_key(athlete_id: str):

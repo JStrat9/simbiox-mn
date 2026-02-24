@@ -13,7 +13,7 @@ from runtime.contracts import (
     SquatFeedbackRenderer,
     StationProvider,
 )
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 
 
 def get_centroid(keypoints: np.ndarray) -> np.ndarray:
