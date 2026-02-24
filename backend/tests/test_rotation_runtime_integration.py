@@ -1,4 +1,5 @@
 import json
+import inspect
 import sys
 import unittest
 from pathlib import Path
@@ -38,6 +39,11 @@ class RotationRuntimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         websocket_server.register_rotate_station_handler(None)
         self.state = SessionState()
         websocket_server.register_session_state(self.state)
+
+    async def test_ws_handler_delegates_rotation_to_use_case(self):
+        source = inspect.getsource(websocket_server)
+        self.assertIn("rotate_stations_use_case", source)
+        self.assertNotIn("from session.rotation import rotate_stations", source)
 
     async def test_rotate_calls_runtime_handler_for_each_assignment(self):
         calls: list[tuple[str, str]] = []

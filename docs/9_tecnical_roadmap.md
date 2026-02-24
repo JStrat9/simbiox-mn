@@ -345,7 +345,7 @@ Definition of Done:
 - Sin cambios en payload `SESSION_UPDATE`.
 - Estructura de carpetas Fase 2.4 creada y documentada.
 
-### PR-F2.4-2 (Desacople runtime -> transporte WS por puerto de emision) - Estado: backlog
+### PR-F2.4-2 (Desacople runtime -> transporte WS por puerto de emision) - Estado: completed
 
 Objetivo:
 
@@ -356,6 +356,19 @@ Cambios concretos:
 - Introducir puerto/callback de emision de snapshot en loop runtime.
 - Inyectar adapter concreto desde `main.py` hacia emisor WS actual.
 - Mantener compatibilidad temporal para no romper bootstrap.
+
+Entrega ejecutada:
+
+- Puerto tipado agregado: `backend/application/ports/session_update_publisher.py`.
+- `backend/runtime/app_runtime.py`:
+- elimina import directo a `communication.websocket_server`.
+- agrega dependencia inyectable `session_update_publisher`.
+- usa `NullSessionUpdatePublisher` como compatibilidad temporal cuando no se inyecta adapter.
+- `backend/main.py`:
+- inyecta `WebSocketSessionUpdatePublisher` que delega en `emit_session_update`.
+- Guardrails de test agregados en `backend/tests/test_app_runtime_headless.py`:
+- valida uso del publisher inyectado (`publish_calls == 1` ante cambio observable).
+- valida ausencia de dependencia directa del modulo runtime al transporte WS.
 
 Modulos (mover/envolver/redefinir):
 
@@ -374,7 +387,7 @@ Definition of Done:
 - Emision sigue ocurriendo solo ante cambio observable.
 - Tests de runtime headless y contrato en verde.
 
-### PR-F2.4-3 (Caso de uso de rotacion fuera del servidor WS) - Estado: backlog
+### PR-F2.4-3 (Caso de uso de rotacion fuera del servidor WS) - Estado: completed
 
 Objetivo:
 
@@ -387,6 +400,18 @@ Cambios concretos:
 - sincronizar vista runtime de estaciones via puerto,
 - retornar snapshot listo para publicar.
 - Dejar `communication/websocket_server.py` como handler de transporte (parseo, routing, envio).
+
+Entrega ejecutada:
+
+- Caso de uso creado: `backend/application/use_cases/rotate_stations_uc.py`.
+- Puerto minimo de sincronizacion runtime creado: `backend/application/ports/runtime_station_sync.py`.
+- `backend/communication/websocket_server.py`:
+- elimina dependencia directa de `session.rotation.rotate_stations`.
+- delega `ROTATE_STATIONS` en `rotate_stations_use_case(...)`.
+- conserva rol de adapter de transporte (parseo inbound + broadcast outbound).
+- Tests agregados/actualizados:
+- `backend/tests/test_rotate_stations_use_case.py` (unit tests del caso de uso).
+- `backend/tests/test_rotation_runtime_integration.py` (guardrail de delegacion a use case + integracion runtime).
 
 Modulos (mover/envolver/redefinir):
 

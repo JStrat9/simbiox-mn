@@ -7,7 +7,8 @@ import websockets
 
 from typing import Dict, Set
 
-from session.rotation import rotate_stations
+from application.ports.runtime_station_sync import RuntimeStationSyncPort
+from application.use_cases.rotate_stations_uc import rotate_stations_use_case
 from session.session_snapshot import build_session_update
 from session.session_state import SessionState
 
@@ -52,11 +53,12 @@ async def handler(websocket, path=None):
                 continue
 
             if msg.get("type") == "ROTATE_STATIONS":
-                new_assignments = rotate_stations(session_state)
-                print("[DEBUG ROTATE STATIONS] New assignments:", new_assignments, flush=True)
-                _apply_rotation_to_runtime(new_assignments)
-
-                await broadcast(build_session_update(session_state))
+                runtime_station_sync = _build_runtime_station_sync_adapter()
+                event = rotate_stations_use_case(
+                    session_state=session_state,
+                    runtime_station_sync=runtime_station_sync,
+                )
+                await broadcast(event)
 
     except Exception as e:
         print("[WS] Handler exception:", e, flush=True)
@@ -97,16 +99,18 @@ def emit_session_update():
     asyncio.run_coroutine_threadsafe(broadcast(event), server_loop)
 
 
-def _apply_rotation_to_runtime(assignments: Dict[str, str]):
-    """
-    Keep runtime station view in sync after canonical rotation.
-    """
-    if _rotate_station_handler is None:
-        print("[WS][WARN] rotate station handler not registered", flush=True)
-        return
+class _FunctionRuntimeStationSyncAdapter(RuntimeStationSyncPort):
+    def __init__(self, handler):
+        self._handler = handler
 
-    for session_person_id, station_id in assignments.items():
-        _rotate_station_handler(session_person_id, station_id)
+    def sync(self, session_person_id: str, station_id: str) -> None:
+        self._handler(session_person_id, station_id)
+
+
+def _build_runtime_station_sync_adapter() -> RuntimeStationSyncPort | None:
+    if _rotate_station_handler is None:
+        return None
+    return _FunctionRuntimeStationSyncAdapter(_rotate_station_handler)
 
 
 # -----------------------------
