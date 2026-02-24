@@ -5,6 +5,7 @@ from typing import Any, Iterable, Mapping, TypedDict
 
 from session.error_catalog import (
     ErrorSeverity,
+    default_message_key_for_code,
     default_severity_for_code,
     normalize_error_code,
 )
@@ -12,6 +13,7 @@ from session.error_catalog import (
 
 class ErrorV2(TypedDict):
     code: str
+    message_key: str
     severity: ErrorSeverity
     metadata: dict[str, Any]
 
@@ -47,6 +49,8 @@ def _normalize_error_item(raw_error: Any) -> ErrorV2:
     if isinstance(raw_error, Mapping):
         raw_code = str(raw_error.get("code", ""))
         code = normalize_error_code(raw_code)
+        raw_message_key = str(raw_error.get("message_key", "")).strip()
+        message_key = raw_message_key or default_message_key_for_code(code)
         severity = _normalize_severity(code, raw_error.get("severity"))
         metadata = _sanitize_metadata(raw_error.get("metadata", {}))
 
@@ -55,12 +59,14 @@ def _normalize_error_item(raw_error: Any) -> ErrorV2:
 
         return {
             "code": code,
+            "message_key": message_key,
             "severity": severity,
             "metadata": metadata,
         }
 
     raw_text = str(raw_error or "")
     code = normalize_error_code(raw_text)
+    message_key = default_message_key_for_code(code)
     severity = default_severity_for_code(code)
     metadata: dict[str, Any] = {}
     if code == "UNKNOWN_ERROR" and raw_text:
@@ -68,6 +74,7 @@ def _normalize_error_item(raw_error: Any) -> ErrorV2:
 
     return {
         "code": code,
+        "message_key": message_key,
         "severity": severity,
         "metadata": metadata,
     }
@@ -82,6 +89,7 @@ def canonicalize_errors_v2(errors_v2: Iterable[Any] | None) -> list[ErrorV2]:
         normalized = _normalize_error_item(raw_error)
         key = (
             normalized["code"],
+            normalized["message_key"],
             normalized["severity"],
             _canonical_json(normalized["metadata"]),
         )
@@ -91,7 +99,7 @@ def canonicalize_errors_v2(errors_v2: Iterable[Any] | None) -> list[ErrorV2]:
         deduped[key]
         for key in sorted(
             deduped.keys(),
-            key=lambda item: (item[0], item[1], item[2]),
+            key=lambda item: (item[0], item[1], item[2], item[3]),
         )
     ]
 

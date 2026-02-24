@@ -26,8 +26,18 @@ class ErrorNormalizerTests(unittest.TestCase):
         self.assertEqual(
             normalized,
             [
-                {"code": "DEPTH_INSUFFICIENT", "severity": "warning", "metadata": {}},
-                {"code": "KNEE_FORWARD", "severity": "warning", "metadata": {}},
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "message_key": "error.squat.depth_insufficient",
+                    "severity": "warning",
+                    "metadata": {},
+                },
+                {
+                    "code": "KNEE_FORWARD",
+                    "message_key": "error.squat.knee_forward",
+                    "severity": "warning",
+                    "metadata": {},
+                },
             ],
         )
 
@@ -55,9 +65,15 @@ class ErrorNormalizerTests(unittest.TestCase):
         self.assertEqual(
             normalized,
             [
-                {"code": "DEPTH_INSUFFICIENT", "severity": "warning", "metadata": {}},
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "message_key": "error.squat.depth_insufficient",
+                    "severity": "warning",
+                    "metadata": {},
+                },
                 {
                     "code": "KNEE_FORWARD",
+                    "message_key": "error.squat.knee_forward",
                     "severity": "critical",
                     "metadata": {"frames": 3},
                 },
@@ -70,9 +86,15 @@ class ErrorNormalizerTests(unittest.TestCase):
         self.assertEqual(
             normalized,
             [
-                {"code": "DEPTH_INSUFFICIENT", "severity": "warning", "metadata": {}},
+                {
+                    "code": "DEPTH_INSUFFICIENT",
+                    "message_key": "error.squat.depth_insufficient",
+                    "severity": "warning",
+                    "metadata": {},
+                },
                 {
                     "code": "UNKNOWN_ERROR",
+                    "message_key": "error.generic.unknown",
                     "severity": "warning",
                     "metadata": {"raw_error": "NO_EXISTE"},
                 },

@@ -40,7 +40,8 @@ Formato base:
     "athlete_1": {
       "station_id": "station1",
       "reps": 14,
-      "errors": []
+      "errors": [],
+      "errors_v2": []
     }
   },
   "stations": {
@@ -53,6 +54,8 @@ Semantica:
 
 - Snapshot completo, no incremental.
 - Aplicacion frontend por version estrictamente creciente.
+- `errors_v2` es el campo estructurado de errores.
+- `errors` se mantiene como compatibilidad legacy derivada de `errors_v2.code`.
 
 ## 6.2 Modulos tecnicos clave
 
@@ -75,6 +78,7 @@ Semantica:
 
 5. `backend/session/session_sync.py`
 - Reglas de sincronizacion de asignaciones, reps y errores.
+- Normaliza errores de detector a `errors_v2` antes de persistir en `SessionState`.
 
 6. `backend/session/session_snapshot.py`
 - Construye payload `SESSION_UPDATE` desde estado canonico.
@@ -146,7 +150,7 @@ Semantica:
 ## 6.5 Riesgos tecnicos actuales
 
 1. Contrato semantico de errores:
-- Detector usa mensajes libres en lugar de `error_code` estable.
+- Cobertura de normalizacion puede degradar a `UNKNOWN_ERROR` en casos no mapeados.
 
 2. Escalabilidad de diseno:
 - Aun no hay separacion formal completa de capas limpias.

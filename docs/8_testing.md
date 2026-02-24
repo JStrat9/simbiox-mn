@@ -16,7 +16,8 @@ Blindar contrato e invariantes de Fase 2 antes de refactors de arquitectura:
 Cobertura:
 
 - schema base del snapshot (`type`, `version`, `timestamp`, `athletes`, `stations`),
-- contenido por atleta (`station_id`, `reps`, `errors`),
+- contenido por atleta (`station_id`, `reps`, `errors`, `errors_v2`),
+- derivación de `errors` legacy desde `errors_v2.code`,
 - identidad pública `athlete_X`.
 
 ### Archivo: `backend/tests/test_versioning.py`
@@ -27,7 +28,16 @@ Cobertura:
 - `version` incrementa de forma monótona para cambios de dominio,
 - `increment_version=False` mantiene `version` estable,
 - normalización de errores no crea incrementos falsos de `version`,
+- normalización de `errors_v2` no crea incrementos falsos de `version`,
 - clamping de reps sin efecto no crea incrementos falsos de `version`.
+
+### Archivo: `backend/tests/test_error_normalizer.py`
+
+Cobertura:
+
+- mapeo de texto interno de detector a `error_code` estable,
+- dedupe/canonicalización de `errors_v2`,
+- fallback a `UNKNOWN_ERROR` para entradas no mapeadas.
 
 ### Archivo: `backend/tests/test_websocket_contract_phase2.py`
 
@@ -36,6 +46,7 @@ Cobertura:
 - conexión inicial emite solo `SESSION_UPDATE`,
 - `ROTATE_STATIONS` emite solo `SESSION_UPDATE`,
 - payload websocket mantiene identidad pública `athlete_X`,
+- payload websocket incluye `errors_v2` y consistencia con `errors` legacy,
 - JSON inválido se ignora sin emisiones extra,
 - tipos de mensaje desconocidos se ignoran sin emisiones extra.
 
@@ -64,7 +75,7 @@ Cobertura:
 
 - aceptación/rechazo de snapshot por versión,
 - política Fase 2 basada solo en orden de versión,
-- reconstrucción replace-only desde snapshot,
+- reconstrucción replace-only desde snapshot (`errors_v2` primero, fallback `errors`),
 - limpieza de estado stale entre snapshots.
 
 Funciones bajo prueba:

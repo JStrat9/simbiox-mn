@@ -72,6 +72,8 @@ El frontend no puede:
 - `SESSION_UPDATE` es la única fuente canónica de sincronización de sesión.
 - El evento representa estado completo y coherente, no incremental.
 - El frontend reemplaza su estado al recibir `version` superior.
+- En transporte, `athletes[].errors_v2` es el formato estructurado canónico de errores.
+- `athletes[].errors` existe como compatibilidad legacy derivada de `errors_v2[].code`.
 - Mensajes parciales de sesión no son parte del contrato funcional vigente.
 
 Nota histórica:

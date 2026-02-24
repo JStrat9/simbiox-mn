@@ -77,6 +77,7 @@ class SessionSyncTests(unittest.TestCase):
             [
                 {
                     "code": "DEPTH_INSUFFICIENT",
+                    "message_key": "error.squat.depth_insufficient",
                     "severity": "warning",
                     "metadata": {},
                 }
@@ -116,7 +117,14 @@ class SessionSyncTests(unittest.TestCase):
         self.assertEqual(self.state.errors[self.athlete_id], ["KNEE_FORWARD"])
         self.assertEqual(
             self.state.errors_v2[self.athlete_id],
-            [{"code": "KNEE_FORWARD", "severity": "warning", "metadata": {}}],
+            [
+                {
+                    "code": "KNEE_FORWARD",
+                    "message_key": "error.squat.knee_forward",
+                    "severity": "warning",
+                    "metadata": {},
+                }
+            ],
         )
         self.assertEqual(self.state.version, 0)
 

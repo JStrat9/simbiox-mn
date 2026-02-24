@@ -106,12 +106,12 @@ Definition of Done:
 
 ## 9.5 Plan activo (Fase 2.2): errores estructurados en snapshot
 
-Estado global: **planned**.
+Estado global: **in_progress**.
 
 Objetivo:
 
 - Mitigar riesgo de errores como texto libre en detector/transporte.
-- Migrar a contrato estructurado mínimo: `code + severity + metadata`.
+- Migrar a contrato estructurado mínimo: `code + message_key + severity + metadata`.
 - Mantener compatibilidad progresiva con `errors` legacy durante transición.
 - Preservar modelo backend source-of-truth + frontend replace-only por `version`.
 
@@ -121,6 +121,7 @@ Contrato objetivo mínimo (iteración actual):
 "errors_v2": [
   {
     "code": "DEPTH_INSUFFICIENT",
+    "message_key": "error.squat.depth_insufficient",
     "severity": "warning",
     "metadata": {}
   }
@@ -129,7 +130,8 @@ Contrato objetivo mínimo (iteración actual):
 
 Decisión de alcance:
 
-- `message_key` y `error_contract_version` quedan en backlog para iteración futura (i18n/evolución de esquema).
+- `message_key` se implementa en Fase 2.2 para desacoplar contrato de textos renderizados.
+- `error_contract_version` queda en backlog para futura evolución de esquema potencialmente incompatible.
 
 ### PR-F2.2-1 (Backend normalización interna a `errors_v2`) - Estado: completed
 
@@ -168,7 +170,7 @@ Definition of Done:
 - Replace-only + gate por versión permanecen intactos.
 - Tests frontend cubren casos mixtos (`errors_v2`/legacy).
 
-### PR-F2.2-4 (Hardening + limpieza documental/técnica) - Estado: planned
+### PR-F2.2-4 (Hardening + limpieza documental/técnica) - Estado: completed
 
 - Consolidar invariantes de errores estructurados en docs técnicas.
 - Eliminar referencias a texto libre como contrato de transporte vigente.
@@ -180,9 +182,20 @@ Definition of Done:
 - Sin dependencias funcionales activas en strings libres para sincronización.
 - Suites backend/frontend en verde.
 
-### PR-F2.2-5 (Backlog) i18n y versionado de contrato de errores - Estado: backlog
+### PR-F2.2-5 (Message key en transporte + render UI) - Estado: completed
 
-- Introducir `message_key` cuando se active i18n.
+- Extender `errors_v2` para incluir `message_key` en backend.
+- Ajustar frontend dual-read para renderizar mensaje por `message_key` y fallback por `code`.
+- Mantener `errors` legacy derivado de `errors_v2.code` sin romper clientes Fase 2.
+
+Definition of Done:
+
+- `SESSION_UPDATE.athletes[].errors_v2[]` incluye `message_key` para errores conocidos.
+- UI deja de mostrar códigos técnicos cuando existe `message_key` mapeado.
+- Tests backend/frontend y documentación de contrato quedan alineados.
+
+### PR-F2.2-6 (Backlog) versionado de contrato de errores - Estado: backlog
+
 - Introducir `error_contract_version` cuando exista cambio de esquema potencialmente incompatible.
 
 Definition of Done:

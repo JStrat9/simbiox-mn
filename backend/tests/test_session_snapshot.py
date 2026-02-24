@@ -44,10 +44,16 @@ class SessionSnapshotTests(unittest.TestCase):
             [
                 {
                     "code": "DEPTH_INSUFFICIENT",
+                    "message_key": "error.squat.depth_insufficient",
                     "severity": "warning",
                     "metadata": {},
                 },
-                {"code": "KNEE_FORWARD", "severity": "warning", "metadata": {}},
+                {
+                    "code": "KNEE_FORWARD",
+                    "message_key": "error.squat.knee_forward",
+                    "severity": "warning",
+                    "metadata": {},
+                },
             ],
         )
 
@@ -65,6 +71,7 @@ class SessionSnapshotTests(unittest.TestCase):
             )
             for error in athlete_data["errors_v2"]:
                 self.assertIn("code", error, athlete_id)
+                self.assertIn("message_key", error, athlete_id)
                 self.assertIn("severity", error, athlete_id)
                 self.assertIn("metadata", error, athlete_id)
 
@@ -78,6 +85,7 @@ class SessionSnapshotTests(unittest.TestCase):
             [
                 {
                     "code": "KNEE_FORWARD",
+                    "message_key": "error.squat.knee_forward",
                     "severity": "critical",
                     "metadata": {"frames": 4},
                 }
@@ -94,6 +102,7 @@ class SessionSnapshotTests(unittest.TestCase):
             [
                 {
                     "code": "KNEE_FORWARD",
+                    "message_key": "error.squat.knee_forward",
                     "severity": "critical",
                     "metadata": {"frames": 4},
                 }

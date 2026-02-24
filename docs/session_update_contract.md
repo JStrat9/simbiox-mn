@@ -29,6 +29,7 @@ Este documento define el contrato vigente de sincronización de sesión.
       "errors_v2": [
         {
           "code": "DEPTH_INSUFFICIENT",
+          "message_key": "error.squat.depth_insufficient",
           "severity": "warning",
           "metadata": {}
         }
@@ -54,7 +55,7 @@ Este documento define el contrato vigente de sincronización de sesión.
 - `timestamp`: instante de emisión del snapshot.
 - `athletes`: estado completo por `athlete_X`.
 - `stations`: catálogo de estaciones y ejercicio por estación.
-- `athletes[].errors_v2`: lista estructurada de errores (`code + severity + metadata`).
+- `athletes[].errors_v2`: lista estructurada de errores (`code + message_key + severity + metadata`).
 - `athletes[].errors`: compatibilidad legacy, derivada de `errors_v2[].code`.
 
 ### 2.3 Reglas de aplicación en frontend

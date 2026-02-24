@@ -44,6 +44,7 @@ def build_session_update(session_state: SessionState) -> dict:
             "errors_v2": [
                 {
                     "code": error["code"],
+                    "message_key": error["message_key"],
                     "severity": error["severity"],
                     "metadata": dict(error["metadata"]),
                 }

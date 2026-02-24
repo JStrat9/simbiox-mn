@@ -7,14 +7,30 @@ ErrorSeverity = Literal["info", "warning", "critical"]
 
 class ErrorSpec(TypedDict):
     severity: ErrorSeverity
+    message_key: str
 
 
 KNOWN_ERRORS: Final[dict[str, ErrorSpec]] = {
-    "DEPTH_INSUFFICIENT": {"severity": "warning"},
-    "DEPTH_EXCESSIVE": {"severity": "warning"},
-    "BACK_ROUNDED": {"severity": "warning"},
-    "KNEE_FORWARD": {"severity": "warning"},
-    "UNKNOWN_ERROR": {"severity": "warning"},
+    "DEPTH_INSUFFICIENT": {
+        "severity": "warning",
+        "message_key": "error.squat.depth_insufficient",
+    },
+    "DEPTH_EXCESSIVE": {
+        "severity": "warning",
+        "message_key": "error.squat.depth_excessive",
+    },
+    "BACK_ROUNDED": {
+        "severity": "warning",
+        "message_key": "error.squat.back_rounded",
+    },
+    "KNEE_FORWARD": {
+        "severity": "warning",
+        "message_key": "error.squat.knee_forward",
+    },
+    "UNKNOWN_ERROR": {
+        "severity": "warning",
+        "message_key": "error.generic.unknown",
+    },
 }
 
 
@@ -44,3 +60,7 @@ def normalize_error_code(raw_code: str) -> str:
 
 def default_severity_for_code(code: str) -> ErrorSeverity:
     return KNOWN_ERRORS.get(code, KNOWN_ERRORS["UNKNOWN_ERROR"])["severity"]
+
+
+def default_message_key_for_code(code: str) -> str:
+    return KNOWN_ERRORS.get(code, KNOWN_ERRORS["UNKNOWN_ERROR"])["message_key"]

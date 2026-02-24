@@ -96,6 +96,7 @@ Detalle:
 - `assignments: athlete_id -> station_id`
 - `reps: athlete_id -> reps`
 - `errors: athlete_id -> list[str]`
+- `errors_v2: athlete_id -> list[{code,severity,metadata}]`
 - `station_map: station_id -> exercise`
 - `rotation_index`
 - `version` (monotona)
@@ -117,7 +118,12 @@ Evento de salida de sesion:
   "version": 12,
   "timestamp": 1730000000,
   "athletes": {
-    "athlete_1": { "station_id": "station1", "reps": 14, "errors": [] }
+    "athlete_1": {
+      "station_id": "station1",
+      "reps": 14,
+      "errors": [],
+      "errors_v2": []
+    }
   },
   "stations": {
     "station1": { "exercise": "squat" }
@@ -131,6 +137,8 @@ Reglas vigentes:
 - Identidad publica expuesta: solo `athlete_X`.
 - Rotacion calculada exclusivamente en backend.
 - Frontend no reconstruye logica; solo reemplaza estado por snapshot valido.
+- `errors_v2` es el campo estructurado para errores (`code + message_key + severity + metadata`).
+- `errors` se mantiene como compatibilidad legacy derivada de `errors_v2.code`.
 
 ## 4.6 Distribucion de responsabilidades
 
@@ -161,14 +169,14 @@ Limitaciones actuales:
 
 - Aun no existe estructura formal `domain/use_cases/interfaces/infrastructure`.
 - Estado solo in-memory (sin persistencia).
-- `SquatDetector` devuelve mensajes libres de error en texto, no `error_code` estable.
+- `SquatDetector` genera señales textuales internas que se normalizan a `errors_v2`; la cobertura de normalización aún es incremental por ejercicio.
 - Logging mayormente por `print`, sin esquema estructurado unificado.
 
 ## 4.8 Riesgos arquitectonicos vigentes
 
-1. Riesgo de contrato semantico de errores:
-- Mensajes libres en detector dificultan internacionalizacion, analitica y estabilidad del contrato.
-- Mitigacion planificada en roadmap: `docs/9_tecnical_roadmap.md` (seccion Fase 2.2).
+1. Riesgo de cobertura semantica en normalizacion de errores:
+- Nuevos ejercicios o textos no mapeados pueden degradar a `UNKNOWN_ERROR` hasta ampliar catalogo.
+- Mitigacion implementada y en evolucion: `docs/9_tecnical_roadmap.md` (seccion Fase 2.2).
 
 2. Riesgo de evolucion:
 - El monolito modular funciona para MVP, pero faltan limites de capas mas estrictos para escalar sin acoplamiento.

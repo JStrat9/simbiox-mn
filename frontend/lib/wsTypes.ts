@@ -4,6 +4,7 @@ export type ErrorSeverity = "info" | "warning" | "critical";
 
 export type SessionErrorV2 = {
     code: string;
+    message_key?: string;
     severity: ErrorSeverity;
     metadata: Record<string, unknown>;
 };

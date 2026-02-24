@@ -2,7 +2,7 @@
 
 ## 5.0 Estado vigente
 
-Fecha de corte: 2026-02-19
+Fecha de corte: 2026-02-23
 
 Este documento describe primero lo implementado hoy y luego la direccion de evolucion.
 
@@ -35,6 +35,7 @@ Estructura principal:
 - `assignments: athlete_id -> station_id`
 - `reps: athlete_id -> int`
 - `errors: athlete_id -> list[str]`
+- `errors_v2: athlete_id -> list[{code,severity,metadata}]`
 - `station_map: station_id -> exercise`
 - `rotation_index`
 - `version`
@@ -72,8 +73,8 @@ Estado interno principal:
 
 Nota de contrato:
 
-- Hoy devuelve errores en texto libre.
-- Objetivo recomendado: pasar a `error_code` estable para transporte.
+- Puede devolver señales textuales internas.
+- `session_sync` normaliza esas señales a `errors_v2` para transporte/capa de sesión.
 
 ### 5.2.4 Station (value object)
 
@@ -187,12 +188,12 @@ Brechas actuales:
 
 - No hay ciclo de vida formal de sesion (`status`).
 - No hay persistencia historica.
-- Errores de detector no estan normalizados a `error_code` estable.
+- Cobertura de normalizacion de errores aun incremental (casos no mapeados -> `UNKNOWN_ERROR`).
 - Logging aun no es plenamente estructurado.
 
 Evolucion recomendada:
 
-1. Normalizar errores a `error_code` + mapping de texto en UI.
+1. Ampliar catalogo de normalizacion por ejercicio y enriquecer `metadata`.
 2. Introducir `Session.status` y validaciones de transicion.
 3. Separar con mayor rigor capas `domain/use_cases/interfaces/infrastructure`.
 4. Anadir persistencia opcional para historico y analitica.

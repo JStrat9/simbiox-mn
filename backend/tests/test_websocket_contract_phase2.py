@@ -89,6 +89,7 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
             )
             for error in athlete_data["errors_v2"]:
                 self.assertIn("code", error, athlete_id)
+                self.assertIn("message_key", error, athlete_id)
                 self.assertIn("severity", error, athlete_id)
                 self.assertIn("metadata", error, athlete_id)
 

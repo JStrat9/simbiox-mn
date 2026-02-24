@@ -1,3 +1,5 @@
+import { getErrorMessage } from "./errorMessages.js";
+
 export function shouldApplySessionUpdate(lastSessionVersion, incomingVersion) {
     if (lastSessionVersion === null || lastSessionVersion === undefined) {
         return true;
@@ -17,17 +19,19 @@ function normalizeErrorCode(rawCode) {
     return safeCode;
 }
 
-function getErrorCodesForAthlete(athleteState) {
+function getNormalizedErrorsForAthlete(athleteState) {
     if (Array.isArray(athleteState?.errors_v2)) {
-        return athleteState.errors_v2.map((entry) =>
-            normalizeErrorCode(entry?.code),
-        );
+        return athleteState.errors_v2.map((entry) => ({
+            code: normalizeErrorCode(entry?.code),
+            messageKey: String(entry?.message_key ?? "").trim(),
+        }));
     }
 
     if (Array.isArray(athleteState?.errors)) {
-        return athleteState.errors.map((errorCode) =>
-            normalizeErrorCode(errorCode),
-        );
+        return athleteState.errors.map((errorCode) => ({
+            code: normalizeErrorCode(errorCode),
+            messageKey: "",
+        }));
     }
 
     return [];
@@ -57,9 +61,15 @@ export function buildClientsFromSessionUpdate(snapshot) {
                 ? snapshot.stations?.[stationId]?.exercise ?? ""
                 : "";
             const exercise = humanizeExercise(exerciseRaw);
-            const currentErrorCodes = getErrorCodesForAthlete(athleteState);
-            const currentErrors = currentErrorCodes.map(
-                (errorCode) => (exercise ? `${exercise}: ${errorCode}` : errorCode),
+            const normalizedErrors = getNormalizedErrorsForAthlete(athleteState);
+            const currentErrorCodes = normalizedErrors.map((error) => error.code);
+            const currentErrors = normalizedErrors.map((error) =>
+                getErrorMessage({
+                    messageKey: error.messageKey,
+                    code: error.code,
+                }),
+            ).map(
+                (message) => (exercise ? `${exercise}: ${message}` : message),
             );
 
             nextClients[athleteId] = {

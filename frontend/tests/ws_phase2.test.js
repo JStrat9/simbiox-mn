@@ -43,6 +43,7 @@ test("buildClientsFromSessionUpdate builds a full replace-only view from snapsho
                 errors_v2: [
                     {
                         code: "DEPTH_INSUFFICIENT",
+                        message_key: "error.squat.depth_insufficient",
                         severity: "warning",
                         metadata: {},
                     },
@@ -67,7 +68,7 @@ test("buildClientsFromSessionUpdate builds a full replace-only view from snapsho
             reps: 7,
             exercise: "Squat",
             currentErrorCodes: ["DEPTH_INSUFFICIENT"],
-            currentErrors: ["Squat: DEPTH_INSUFFICIENT"],
+            currentErrors: ["Squat: No bajas lo suficiente"],
             station: "station1",
         },
         athlete_2: {
@@ -93,6 +94,7 @@ test("buildClientsFromSessionUpdate prioritizes errors_v2 over legacy errors", (
                 errors_v2: [
                     {
                         code: "DEPTH_INSUFFICIENT",
+                        message_key: "error.squat.depth_insufficient",
                         severity: "warning",
                         metadata: {},
                     },
@@ -110,7 +112,7 @@ test("buildClientsFromSessionUpdate prioritizes errors_v2 over legacy errors", (
         "DEPTH_INSUFFICIENT",
     ]);
     assert.deepEqual(clients.athlete_1.currentErrors, [
-        "Squat: DEPTH_INSUFFICIENT",
+        "Squat: No bajas lo suficiente",
     ]);
 });
 
@@ -137,7 +139,7 @@ test("buildClientsFromSessionUpdate falls back to legacy errors when errors_v2 i
         "DEPTH_INSUFFICIENT",
     ]);
     assert.deepEqual(clients.athlete_1.currentErrors, [
-        "Squat: DEPTH_INSUFFICIENT",
+        "Squat: No bajas lo suficiente",
     ]);
 });
 
@@ -154,6 +156,7 @@ test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields
                 errors_v2: [
                     {
                         code: "KNEE_FORWARD",
+                        message_key: "error.squat.knee_forward",
                         severity: "warning",
                         metadata: {},
                     },
@@ -166,6 +169,7 @@ test("buildClientsFromSessionUpdate does not keep stale athletes or stale fields
                 errors_v2: [
                     {
                         code: "OLD_ERROR",
+                        message_key: "error.generic.unknown",
                         severity: "warning",
                         metadata: {},
                     },

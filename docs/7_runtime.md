@@ -14,7 +14,7 @@ Sistema activo en **Fase 2 (contrato final)**:
 2. MoveNet genera keypoints por persona.
 3. Tracker resuelve `client_id` y `SessionPersonManager` resuelve `athlete_X`.
 4. Detector de ejercicio evalúa reps y errores.
-5. `SessionState` se sincroniza con asignaciones, reps y errores.
+5. `SessionState` se sincroniza con asignaciones, reps y errores normalizados (`errors_v2`).
 6. Si hubo cambio observable, backend emite `SESSION_UPDATE`.
 
 ## 7.3 Emisión websocket de sesión
@@ -58,6 +58,7 @@ Casos sin incremento:
 - `SESSION_UPDATE` se acepta solo si `version` es superior a la última aplicada.
 - El store se reconstruye desde `snapshot.athletes` + `snapshot.stations`.
 - `WorkoutBoard` renderiza estaciones y nombres de ejercicio desde `snapshot.stations`.
+- Frontend prioriza `athletes[].errors_v2` y usa `athletes[].errors` solo como fallback legacy.
 - No existe fallback funcional por eventos parciales.
 
 ## 7.6 Contrato `process_person` (PR4)
