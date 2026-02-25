@@ -9,8 +9,8 @@ if str(BACKEND_ROOT) not in sys.path:
 from application.projections.session_update_projection import (
     build_session_update_projection,
 )
+from domain.session.session_state import SessionState
 from session.session_snapshot import build_session_update
-from session.session_state import SessionState
 
 
 class SessionSnapshotShimTests(unittest.TestCase):

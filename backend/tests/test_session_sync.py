@@ -6,8 +6,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from session.session_state import SessionState
-from session.session_sync import sync_session_state_for_person
+from domain.session.session_state import SessionState
+from domain.session.sync_policy import sync_session_state_for_person
 
 
 class SessionSyncTests(unittest.TestCase):

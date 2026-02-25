@@ -8,8 +8,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from session.session_person_manager import SessionPersonManager
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
+from interfaces.runtime.session_person_manager import SessionPersonManager
 
 
 class SessionPersonManagerIdentityTests(unittest.TestCase):

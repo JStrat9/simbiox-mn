@@ -785,7 +785,7 @@ Definition of Done:
 - Shims legacy activos solo para compatibilidad transitoria.
 - Contrato `SESSION_UPDATE` intacto y tests en verde.
 
-### PR-F2.5-4 (Migracion de tests internos a imports canonicos) - Estado: backlog
+### PR-F2.5-4 (Migracion de tests internos a imports canonicos) - Estado: completed
 
 Objetivo:
 
@@ -796,6 +796,22 @@ Cambios concretos:
 - Migrar tests funcionales a imports canonicos (`domain/*`, `application/*`).
 - Mantener solo tests de shims para verificar compatibilidad temporal.
 - Separar claramente tests de comportamiento vs tests de compat.
+
+Entrega ejecutada:
+
+- Tests funcionales migrados a imports canonicos:
+- `domain/*`: `session_state`, `rotation_policy`, `sync_policy`, `error_normalizer`.
+- `application/*`: `process_person_uc`, `process_person_ports`, `session_update_projection`.
+- `interfaces/runtime/*`: `session_person_manager`, `station`.
+- Tests de compatibilidad preservados como unica via de imports legacy:
+- `backend/tests/test_domain_shims.py`
+- `backend/tests/test_process_person_shims.py`
+- `backend/tests/test_session_snapshot_shim.py`
+- `backend/tests/test_session_person_manager_shims.py`
+- Guardrail de capas extendido:
+- `backend/tests/test_layer_boundaries.py` agrega check para que solo tests de shim puedan importar legacy.
+- Inventario legacy reducido y actualizado:
+- `backend/tests/test_legacy_import_inventory.py` (solo imports legacy de tests de shim).
 
 Modulos (mover/envolver/redefinir):
 

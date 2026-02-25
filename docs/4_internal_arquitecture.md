@@ -208,6 +208,7 @@ Limitaciones actuales:
 - Coexistencia temporal de imports nuevos (`domain/*`, `application/*`) y rutas legacy (`session/*`) durante retiro progresivo post-cierre de Fase 2.4.
 - Shims legacy (`session/*`, `runtime/{contracts,process_person}`) siguen presentes por compatibilidad, pero ya marcados como deprecados con retiro diferido.
 - No hay consumo legacy productivo directo de `session.session_person_manager` ni `session.station`.
+- Imports legacy internos acotados a tests de shim de compatibilidad temporal.
 - Limites de capa verificados por tests de arquitectura/import boundaries (`backend/tests/test_layer_boundaries.py`).
 - Inventario de imports legacy versionado y verificable (`backend/tests/test_legacy_import_inventory.py`).
 - Estado solo in-memory (sin persistencia).

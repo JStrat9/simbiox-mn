@@ -8,11 +8,11 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from runtime.contracts import IdentityResolution
-from runtime.process_person import process_person
-from session.session_state import SessionState
-from session.session_sync import sync_session_state_for_person
-from session.station import Station
+from application.ports.process_person_ports import IdentityResolution
+from application.use_cases.process_person_uc import process_person
+from domain.session.session_state import SessionState
+from domain.session.sync_policy import sync_session_state_for_person
+from interfaces.runtime.station import Station
 
 
 def _fake_person_kp() -> np.ndarray:

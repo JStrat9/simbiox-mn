@@ -14,10 +14,10 @@ from runtime import app_runtime
 from runtime.app_runtime import run_app_runtime
 from runtime.perf_monitor import NullPerfReporter
 from runtime.visualization import NullFramePresenter
+from domain.session.session_state import SessionState
 from interfaces.runtime.session_person_manager_adapter import (
     build_legacy_session_person_manager_adapter,
 )
-from session.session_state import SessionState
 
 
 def _fake_person_kp() -> np.ndarray:
