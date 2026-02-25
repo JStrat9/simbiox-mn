@@ -41,6 +41,8 @@ Estado real implementado:
       sync_policy.py
   /interfaces
     /runtime
+      session_person_manager.py
+      station.py
       session_person_manager_adapter.py
   /infrastructure
     (scaffold de capa; sin modulos productivos aun)
@@ -57,8 +59,8 @@ Estado real implementado:
     rotation.py           (shim -> domain)
     error_catalog.py      (shim -> domain)
     error_normalizer.py   (shim -> domain)
-    session_person_manager.py
-    station.py
+    session_person_manager.py (shim -> interfaces/runtime)
+    station.py                (shim -> interfaces/runtime)
   /detectors
     movenet_inference.py
     squat_detector.py
@@ -177,7 +179,7 @@ Backend:
 - `runtime/*`: adapter del loop de vision y orquestacion de frame processing.
 - `interfaces/runtime/*`: adapters de compatibilidad entre implementaciones legacy y puertos de application.
 - `communication/*`: adapter WS (parseo/routing de comandos y broadcast).
-- `session/*`: capa de compatibilidad temporal (shims) + modulos aun legacy (`session_person_manager`, `station`).
+- `session/*`: capa de compatibilidad temporal (shims).
 - `infrastructure/*`: scaffold de capas para siguientes PRs de migracion.
 - `detectors/*`: inferencia + reglas biomecanicas por ejercicio.
 - `tracking/*`: tracking fisico por centroides.
@@ -199,12 +201,13 @@ Fortalezas implementadas:
 - Extraccion del nucleo de dominio a `backend/domain/*` con shims de compatibilidad en `backend/session/*`.
 - Orquestacion de procesamiento por persona aislada en `application/use_cases/process_person_uc.py` con shims legacy en `runtime/*`.
 - `main.py` y `runtime/app_runtime.py` desacoplados de import directo de `session.session_person_manager` via puertos + adapter.
+- `SessionPersonManager` y `Station` reubicados a `interfaces/runtime/*` con shims legacy en `session/*`.
 
 Limitaciones actuales:
 
 - Coexistencia temporal de imports nuevos (`domain/*`, `application/*`) y rutas legacy (`session/*`) durante retiro progresivo post-cierre de Fase 2.4.
 - Shims legacy (`session/*`, `runtime/{contracts,process_person}`) siguen presentes por compatibilidad, pero ya marcados como deprecados con retiro diferido.
-- Consumo legacy productivo de `session.session_person_manager` acotado al adapter `interfaces/runtime/session_person_manager_adapter.py`.
+- No hay consumo legacy productivo directo de `session.session_person_manager` ni `session.station`.
 - Limites de capa verificados por tests de arquitectura/import boundaries (`backend/tests/test_layer_boundaries.py`).
 - Inventario de imports legacy versionado y verificable (`backend/tests/test_legacy_import_inventory.py`).
 - Estado solo in-memory (sin persistencia).

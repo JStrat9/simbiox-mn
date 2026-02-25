@@ -12,8 +12,8 @@ from interfaces.runtime.session_person_manager_adapter import (
     LegacySessionPersonManagerAdapter,
     build_legacy_session_person_manager_adapter,
 )
-from session.session_person_manager import SessionPersonManager
-from session.session_state import SessionState
+from interfaces.runtime.session_person_manager import SessionPersonManager
+from domain.session.session_state import SessionState
 
 
 class SessionPersonManagerAdapterTests(unittest.TestCase):
