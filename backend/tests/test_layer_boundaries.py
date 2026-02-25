@@ -173,6 +173,36 @@ class LayerBoundariesTests(unittest.TestCase):
             else None,
         )
 
+    def test_only_shim_tests_are_allowed_to_import_legacy_modules(self):
+        allowed_shim_test_files = {
+            "tests/test_domain_shims.py",
+            "tests/test_process_person_shims.py",
+            "tests/test_session_snapshot_shim.py",
+            "tests/test_session_person_manager_shims.py",
+        }
+        tests_root = BACKEND_ROOT / "tests"
+        violations: list[str] = []
+
+        for path in _iter_python_files(tests_root):
+            rel = path.relative_to(BACKEND_ROOT).as_posix()
+            for module_name, line in _iter_imports(path):
+                if not _is_legacy_import(module_name):
+                    continue
+                if rel in allowed_shim_test_files:
+                    continue
+                violations.append(f"{rel}:{line} -> {module_name}")
+
+        self.assertEqual(
+            [],
+            violations,
+            msg=(
+                "Only shim tests may import legacy shim modules:\n- "
+                + "\n- ".join(violations)
+            )
+            if violations
+            else None,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from application.use_cases.rotate_stations_uc import rotate_stations_use_case
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 
 
 class _RuntimeStationSyncSpy:

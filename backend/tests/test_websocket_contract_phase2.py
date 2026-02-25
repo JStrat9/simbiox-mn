@@ -9,7 +9,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from communication import websocket_server
-from session.session_state import SessionState
+from domain.session.session_state import SessionState
 
 
 class FakeWebSocket:

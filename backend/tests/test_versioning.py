@@ -6,8 +6,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from session.rotation import rotate_stations
-from session.session_state import SessionState
+from domain.session.rotation_policy import rotate_stations
+from domain.session.session_state import SessionState
 
 
 class SessionVersioningTests(unittest.TestCase):

@@ -7,8 +7,10 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from session.session_snapshot import build_session_update
-from session.session_state import SessionState
+from application.projections.session_update_projection import (
+    build_session_update_projection as build_session_update,
+)
+from domain.session.session_state import SessionState
 
 
 class SessionSnapshotTests(unittest.TestCase):
