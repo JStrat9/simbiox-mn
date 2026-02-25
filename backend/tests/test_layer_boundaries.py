@@ -40,6 +40,12 @@ def _matches_prefix(module_name: str, prefix: str) -> bool:
     return module_name == prefix or module_name.startswith(f"{prefix}.")
 
 
+def _is_legacy_import(module_name: str) -> bool:
+    if _matches_prefix(module_name, "session"):
+        return True
+    return module_name in {"runtime.contracts", "runtime.process_person"}
+
+
 class LayerBoundariesTests(unittest.TestCase):
     def test_domain_does_not_depend_on_outer_layers_or_io_frameworks(self):
         forbidden_prefixes = (
@@ -111,36 +117,32 @@ class LayerBoundariesTests(unittest.TestCase):
         )
 
     def test_production_modules_do_not_import_legacy_shim_modules(self):
-        legacy_shims = {
-            "session.error_catalog",
-            "session.error_normalizer",
-            "session.rotation",
-            "session.session_state",
-            "session.session_sync",
-            "session.session_snapshot",
-            "runtime.contracts",
-            "runtime.process_person",
+        allowed_legacy_import_sites = {
+            ("main.py", "session.session_person_manager"),
+            ("runtime/app_runtime.py", "session.session_person_manager"),
         }
         excluded_roots = {
             BACKEND_ROOT / "tests",
             BACKEND_ROOT / "session",
-            BACKEND_ROOT / "runtime",
         }
         violations: list[str] = []
 
         for path in _iter_python_files(BACKEND_ROOT):
             if any(root in path.parents or path == root for root in excluded_roots):
                 continue
+            rel = path.relative_to(BACKEND_ROOT).as_posix()
             for module_name, line in _iter_imports(path):
-                if module_name in legacy_shims:
-                    rel = path.relative_to(BACKEND_ROOT)
-                    violations.append(f"{rel}:{line} -> {module_name}")
+                if not _is_legacy_import(module_name):
+                    continue
+                if (rel, module_name) in allowed_legacy_import_sites:
+                    continue
+                violations.append(f"{rel}:{line} -> {module_name}")
 
         self.assertEqual(
             [],
             violations,
             msg=(
-                "Production modules must not import legacy shim modules:\n- "
+                "Production modules imported non-allowlisted legacy modules:\n- "
                 + "\n- ".join(violations)
             )
             if violations

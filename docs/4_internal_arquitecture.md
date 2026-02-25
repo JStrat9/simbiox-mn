@@ -201,6 +201,7 @@ Limitaciones actuales:
 - Coexistencia temporal de imports nuevos (`domain/*`, `application/*`) y rutas legacy (`session/*`) durante retiro progresivo post-cierre de Fase 2.4.
 - Shims legacy (`session/*`, `runtime/{contracts,process_person}`) siguen presentes por compatibilidad, pero ya marcados como deprecados con retiro diferido.
 - Limites de capa verificados por tests de arquitectura/import boundaries (`backend/tests/test_layer_boundaries.py`).
+- Inventario de imports legacy versionado y verificable (`backend/tests/test_legacy_import_inventory.py`).
 - Estado solo in-memory (sin persistencia).
 - `SquatDetector` genera señales textuales internas que se normalizan a `errors_v2`; la cobertura de normalización aún es incremental por ejercicio.
 - Logging mayormente por `print`, sin esquema estructurado unificado.
@@ -212,7 +213,7 @@ Limitaciones actuales:
 - Mitigacion implementada y en evolucion: `docs/9_tecnical_roadmap.md` (seccion Fase 2.2).
 
 2. Riesgo de evolucion:
-- Riesgo mitigado parcialmente con limites de capa verificables; persiste deuda de retiro de shims legacy.
+- Riesgo mitigado parcialmente con limites verificables e inventario baseline; persiste deuda de retiro de shims legacy.
 
 ## 4.9 Direccion de evolucion (sin negar el estado real)
 
