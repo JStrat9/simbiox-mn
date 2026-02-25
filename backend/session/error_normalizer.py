@@ -1,3 +1,10 @@
+from utils.deprecation import warn_legacy_module
+
+warn_legacy_module(
+    module_name="session.error_normalizer",
+    replacement="domain.errors.error_normalizer",
+)
+
 from domain.errors.error_normalizer import (
     ErrorV2,
     build_errors_v2_from_codes,

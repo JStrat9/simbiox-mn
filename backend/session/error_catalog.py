@@ -1,3 +1,10 @@
+from utils.deprecation import warn_legacy_module
+
+warn_legacy_module(
+    module_name="session.error_catalog",
+    replacement="domain.errors.error_catalog",
+)
+
 from domain.errors.error_catalog import (
     DETECTOR_TEXT_TO_ERROR_CODE,
     KNOWN_ERRORS,
