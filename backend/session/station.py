@@ -1,10 +1,11 @@
-# session/station.py
+from utils.deprecation import warn_legacy_module
 
-from dataclasses import dataclass
+warn_legacy_module(
+    module_name="session.station",
+    replacement="interfaces.runtime.station",
+)
 
-@dataclass
-class Station:
-    station_id: str
-    exercise: str
-    reps: int = 0
+from interfaces.runtime.station import Station
+
+__all__ = ["Station"]
     

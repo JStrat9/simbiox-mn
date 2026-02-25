@@ -7,7 +7,7 @@ import numpy as np
 from application.ports.process_person_ports import IdentityResolution, StationView
 from application.ports.session_person_manager_ports import RuntimeSessionManagerPort
 from domain.session.session_state import SessionState
-from session.session_person_manager import SessionPersonManager
+from interfaces.runtime.session_person_manager import SessionPersonManager
 
 
 class LegacySessionPersonManagerAdapter(RuntimeSessionManagerPort):

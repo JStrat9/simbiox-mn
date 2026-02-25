@@ -732,7 +732,7 @@ Definition of Done:
 - Sin cambios de comportamiento observable en procesamiento por frame.
 - Suites backend/frontend en verde.
 
-### PR-F2.5-3 (Reubicacion de SessionPersonManager y Station fuera de namespace legacy) - Estado: backlog
+### PR-F2.5-3 (Reubicacion de SessionPersonManager y Station fuera de namespace legacy) - Estado: completed
 
 Objetivo:
 
@@ -743,6 +743,23 @@ Cambios concretos:
 - Reubicar `SessionPersonManager` y `Station` a capa acorde (interfaces/runtime o application/contracts).
 - Convertir `session/session_person_manager.py` y `session/station.py` en shims de re-export con deprecacion.
 - Actualizar imports productivos (`main.py`, `runtime/app_runtime.py`) a nueva ruta canonica.
+
+Entrega ejecutada:
+
+- Implementaciones canonicas reubicadas:
+- `backend/interfaces/runtime/session_person_manager.py`
+- `backend/interfaces/runtime/station.py`
+- Shims legacy aplicados:
+- `backend/session/session_person_manager.py` (re-export + `DeprecationWarning`)
+- `backend/session/station.py` (re-export + `DeprecationWarning`)
+- Adapter runtime actualizado a ruta canonica:
+- `backend/interfaces/runtime/session_person_manager_adapter.py` importa desde `interfaces/runtime/session_person_manager.py`.
+- Imports productivos mantienen ruta canonica via adapter; no hay imports productivos directos a `session.session_person_manager`.
+- Guardrails/inventario actualizados:
+- `backend/tests/test_layer_boundaries.py` elimina allowlist legacy productiva.
+- `backend/tests/test_legacy_import_inventory.py` baseline ajustado tras reubicacion.
+- Tests de shim agregados:
+- `backend/tests/test_session_person_manager_shims.py` (equivalencia shim -> interfaces/runtime).
 
 Modulos (mover/envolver/redefinir):
 
