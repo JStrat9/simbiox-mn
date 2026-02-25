@@ -615,3 +615,205 @@ Definition of Done:
 - Checks de arquitectura en verde en CI local/proyecto.
 - Contrato Fase 2 (`SESSION_UPDATE` snapshot-only) intacto.
 - Suites backend/frontend en verde tras limpieza final.
+
+## 9.8 Plan activo (Fase 2.5): retiro progresivo de shims legacy para cerrar Riesgo 2 (evolucion)
+
+Estado global: **in_progress**.
+
+Objetivo:
+
+- Reducir dependencia interna de shims legacy (`session/*`, `runtime/{contracts,process_person}`).
+- Consolidar limites de capa con enforcement verificable y sin rutas mixtas en codigo productivo.
+- Mantener compatibilidad total con Fase 2 (snapshot replace-only, backend source of truth, sin persistencia nueva).
+
+Invariantes a preservar:
+
+- `SESSION_UPDATE` sigue siendo el unico contrato canonico de sincronizacion.
+- Frontend mantiene gate por `version` y modelo replace-only.
+- Backend mantiene ownership canonico de estado en memoria (`SessionState`).
+
+### PR-F2.5-1 (Inventario y guardrails de retiro de shims) - Estado: completed
+
+Objetivo:
+
+- Congelar estado actual de imports legacy para migracion controlada sin regresiones.
+
+Cambios concretos:
+
+- Agregar test de inventario explicito de imports legacy permitidos temporalmente.
+- Endurecer guardrails para bloquear introduccion de nuevos imports legacy fuera del inventario.
+- Documentar baseline de deuda de shims y criterio de salida por PR.
+
+Entrega ejecutada:
+
+- Guardrail de capa endurecido en `backend/tests/test_layer_boundaries.py`:
+- permite solo imports legacy productivos explicitamente allowlisted:
+- `main.py -> session.session_person_manager`
+- `runtime/app_runtime.py -> session.session_person_manager`
+- Test de inventario agregado: `backend/tests/test_legacy_import_inventory.py`.
+- Inventario legacy baseline versionado (imports legacy observados en codigo productivo + tests).
+- Cualquier deriva del inventario (agregado/eliminacion no prevista) falla en CI local.
+
+Modulos (mover/envolver/redefinir):
+
+- Redefinir `backend/tests/test_layer_boundaries.py` con allowlist inicial controlada.
+- Agregar `backend/tests/test_legacy_import_inventory.py`.
+- Actualizar docs (`docs/4_internal_arquitecture.md`, `docs/9_tecnical_roadmap.md`).
+
+Tests requeridos:
+
+- `python -m unittest backend.tests.test_layer_boundaries`
+- `python -m unittest backend.tests.test_legacy_import_inventory`
+- `python -m unittest discover -s backend/tests`
+- `frontend/tests/ws_phase2.test.js`
+
+Riesgo de transicion:
+
+- Falsos positivos por reglas demasiado estrictas.
+- Mitigacion: allowlist minima versionada y reduccion incremental por PR.
+
+Definition of Done:
+
+- Inventario legacy versionado y verificable en tests.
+- No se aceptan nuevos imports legacy fuera de allowlist.
+- Suite backend/frontend en verde.
+
+### PR-F2.5-2 (Puertos de identidad/estacion para desacople de SessionPersonManager) - Estado: backlog
+
+Objetivo:
+
+- Desacoplar runtime/main de dependencia concreta sobre `session.session_person_manager`.
+
+Cambios concretos:
+
+- Definir puertos en `application/ports` para resolucion de identidad y provision de estacion.
+- Tipar `runtime/app_runtime.py` y wiring en `main.py` contra puertos, no clases concretas legacy.
+- Mantener adapter concreto actual para compatibilidad funcional.
+
+Modulos (mover/envolver/redefinir):
+
+- Agregar `backend/application/ports/session_person_manager_ports.py` (o split por responsabilidad).
+- Redefinir firmas/typing en `backend/runtime/app_runtime.py`.
+- Ajustar wiring en `backend/main.py`.
+
+Tests requeridos:
+
+- `python -m unittest backend.tests.test_app_runtime_headless`
+- `python -m unittest backend.tests.test_process_person_contract`
+- `python -m unittest backend.tests.test_rotation_runtime_integration`
+- `python -m unittest discover -s backend/tests`
+
+Riesgo de transicion:
+
+- Incompatibilidades de interfaz entre runtime y manager concreto.
+- Mitigacion: adapters explicitos + contract tests por puerto.
+
+Definition of Done:
+
+- Runtime/main dependen de puertos de application para identidad/estacion.
+- Sin cambios de comportamiento observable en procesamiento por frame.
+- Suites backend/frontend en verde.
+
+### PR-F2.5-3 (Reubicacion de SessionPersonManager y Station fuera de namespace legacy) - Estado: backlog
+
+Objetivo:
+
+- Mover implementacion productiva restante fuera de `session/*` y dejar shim temporal de compatibilidad.
+
+Cambios concretos:
+
+- Reubicar `SessionPersonManager` y `Station` a capa acorde (interfaces/runtime o application/contracts).
+- Convertir `session/session_person_manager.py` y `session/station.py` en shims de re-export con deprecacion.
+- Actualizar imports productivos (`main.py`, `runtime/app_runtime.py`) a nueva ruta canonica.
+
+Modulos (mover/envolver/redefinir):
+
+- Mover `backend/session/session_person_manager.py`.
+- Mover `backend/session/station.py`.
+- Envolver ambos modulos legacy como shim temporal.
+
+Tests requeridos:
+
+- `python -m unittest backend.tests.test_session_person_manager`
+- `python -m unittest backend.tests.test_app_runtime_headless`
+- `python -m unittest backend.tests.test_rotation_runtime_integration`
+- `python -m unittest discover -s backend/tests`
+
+Riesgo de transicion:
+
+- Regresiones en reasignacion de identidad fisica -> `athlete_X`.
+- Mitigacion: mantener tests de reasignacion/umbral y validar monotonicidad de estado.
+
+Definition of Done:
+
+- Codigo productivo deja de importar `session.session_person_manager` y `session.station`.
+- Shims legacy activos solo para compatibilidad transitoria.
+- Contrato `SESSION_UPDATE` intacto y tests en verde.
+
+### PR-F2.5-4 (Migracion de tests internos a imports canonicos) - Estado: backlog
+
+Objetivo:
+
+- Reducir deuda de rutas legacy en tests y aislar tests de compatibilidad en suite dedicada.
+
+Cambios concretos:
+
+- Migrar tests funcionales a imports canonicos (`domain/*`, `application/*`).
+- Mantener solo tests de shims para verificar compatibilidad temporal.
+- Separar claramente tests de comportamiento vs tests de compat.
+
+Modulos (mover/envolver/redefinir):
+
+- Redefinir imports en `backend/tests/test_*` que aun dependan de `session/*` o runtime shims.
+- Mantener/ajustar `test_domain_shims.py`, `test_process_person_shims.py`, `test_session_snapshot_shim.py`.
+
+Tests requeridos:
+
+- `python -m unittest discover -s backend/tests`
+- `frontend/tests/ws_phase2.test.js`
+
+Riesgo de transicion:
+
+- Perder cobertura sobre compatibilidad legacy durante la migracion.
+- Mitigacion: conservar tests de equivalencia de shim hasta PR final de retiro.
+
+Definition of Done:
+
+- Tests de negocio usan rutas canonicas.
+- Tests de shim quedan acotados a verificacion de compatibilidad temporal.
+- Suites backend/frontend en verde.
+
+### PR-F2.5-5 (Retiro final de shims internos y cierre del Riesgo 2 residual) - Estado: backlog
+
+Objetivo:
+
+- Eliminar shims legacy sin consumidores internos y cerrar riesgo residual de evolucion por rutas mixtas.
+
+Cambios concretos:
+
+- Retirar shims internos de `session/*` y `runtime/*` que ya no tengan uso productivo.
+- Endurecer `test_layer_boundaries.py` para prohibicion total de imports legacy internos.
+- Actualizar documentacion y estado de riesgos post-retiro.
+
+Modulos (mover/envolver/redefinir):
+
+- Eliminar `backend/session/{session_state,session_sync,rotation,error_catalog,error_normalizer,session_snapshot}.py` cuando aplique.
+- Eliminar `backend/runtime/{contracts,process_person}.py` cuando aplique.
+- Ajustar/eliminar tests de shim ya sin objetivo.
+
+Tests requeridos:
+
+- `python -m unittest backend.tests.test_layer_boundaries`
+- `python -m unittest discover -s backend/tests`
+- `frontend/tests/ws_phase2.test.js`
+
+Riesgo de transicion:
+
+- Ruptura por consumidor interno residual no detectado.
+- Mitigacion: inventario previo, removals en ultimo PR, busqueda global + gate en CI.
+
+Definition of Done:
+
+- No quedan imports legacy en codigo productivo interno.
+- Limites de capa verificables sin allowlist transitoria de shims.
+- Riesgo de evolucion marcado como mitigado (con deuda residual explicitada si existiera).
