@@ -11,11 +11,12 @@ if str(BACKEND_ROOT) not in sys.path:
 
 
 EXPECTED_LEGACY_IMPORTS: set[tuple[str, str]] = {
-    ("main.py", "session.session_person_manager"),
-    ("runtime/app_runtime.py", "session.session_person_manager"),
+    (
+        "interfaces/runtime/session_person_manager_adapter.py",
+        "session.session_person_manager",
+    ),
     ("session/session_person_manager.py", "session.session_state"),
     ("session/session_person_manager.py", "session.station"),
-    ("tests/test_app_runtime_headless.py", "session.session_person_manager"),
     ("tests/test_app_runtime_headless.py", "session.session_state"),
     ("tests/test_domain_shims.py", "session.error_catalog"),
     ("tests/test_domain_shims.py", "session.error_normalizer"),
@@ -38,6 +39,8 @@ EXPECTED_LEGACY_IMPORTS: set[tuple[str, str]] = {
     ("tests/test_rotation_runtime_integration.py", "session.session_state"),
     ("tests/test_session_person_manager.py", "session.session_person_manager"),
     ("tests/test_session_person_manager.py", "session.session_state"),
+    ("tests/test_session_person_manager_adapter.py", "session.session_person_manager"),
+    ("tests/test_session_person_manager_adapter.py", "session.session_state"),
     ("tests/test_session_snapshot.py", "session.session_snapshot"),
     ("tests/test_session_snapshot.py", "session.session_state"),
     ("tests/test_session_snapshot_shim.py", "session.session_snapshot"),
