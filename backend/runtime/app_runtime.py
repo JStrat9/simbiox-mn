@@ -15,11 +15,11 @@ from application.ports.session_update_publisher import (
     NullSessionUpdatePublisher,
     SessionUpdatePublisher,
 )
+from application.ports.process_person_ports import IdentityResolution
+from application.use_cases.process_person_uc import process_person
 from domain.session.session_state import SessionState
 from domain.session.sync_policy import sync_session_state_for_person
 from runtime.perf_monitor import NullPerfReporter, PerfReporter
-from runtime.contracts import IdentityResolution
-from runtime.process_person import process_person
 from runtime.visualization import (
     HeadlessRuntimeControl,
     NullFramePresenter,

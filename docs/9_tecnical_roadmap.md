@@ -526,7 +526,7 @@ Definition of Done:
 - Sin cambios de comportamiento en versionado/errores.
 - Tests unitarios de dominio en verde.
 
-### PR-F2.4-6 (Use case de procesamiento de persona en application) - Estado: backlog
+### PR-F2.4-6 (Use case de procesamiento de persona en application) - Estado: completed
 
 Objetivo:
 
@@ -537,6 +537,21 @@ Cambios concretos:
 - Mover `runtime/process_person.py` a `application/use_cases/process_person_uc.py`.
 - Reubicar contratos de puertos de proceso (`identity`, `station`, `detector`, `sync`) en `application/ports`.
 - Mantener `runtime/app_runtime.py` enfocado en loop de frames + adaptadores IO.
+
+Entrega ejecutada:
+
+- Caso de uso creado: `backend/application/use_cases/process_person_uc.py`.
+- Puertos de proceso centralizados: `backend/application/ports/process_person_ports.py`.
+- Alias de puertos agregados para adopcion incremental:
+- `backend/application/ports/identity_resolver.py`
+- `backend/application/ports/detector_provider.py`
+- `backend/runtime/process_person.py` convertido en shim de compatibilidad:
+- re-exporta `process_person` y `get_centroid` desde application.
+- `backend/runtime/contracts.py` convertido en shim de compatibilidad:
+- re-exporta contratos de proceso desde application ports.
+- `backend/runtime/app_runtime.py` actualizado para consumir use case/ports de `application`.
+- Guardrails de shim agregados:
+- `backend/tests/test_process_person_shims.py` (equivalencia runtime shims -> application).
 
 Modulos (mover/envolver/redefinir):
 

@@ -2,11 +2,11 @@
 
 ## 4.0 Estado vigente
 
-Fecha de corte: 2026-02-23
+Fecha de corte: 2026-02-25
 
 Estado real implementado:
 
-- Fase activa: Fase 2.
+- Fase activa: Fase 2.4 (plan de limites de capas en curso).
 - Sincronizacion de sesion: `SESSION_UPDATE` como evento canonico unico.
 - Backend: fuente de verdad unica en memoria (`SessionState`).
 - Frontend: modelo pasivo replace-only por snapshot versionado.
@@ -16,20 +16,46 @@ Estado real implementado:
 
 ```text
 /backend
+  /application
+    /ports
+      session_update_publisher.py
+      runtime_station_sync.py
+      process_person_ports.py
+      identity_resolver.py
+      detector_provider.py
+    /projections
+      session_update_projection.py
+    /use_cases
+      rotate_stations_uc.py
+      process_person_uc.py
   /communication
     websocket_server.py
+  /domain
+    /errors
+      error_catalog.py
+      error_normalizer.py
+    /session
+      session_state.py
+      rotation_policy.py
+      sync_policy.py
+  /interfaces
+    (scaffold de capa; sin modulos productivos aun)
+  /infrastructure
+    (scaffold de capa; sin modulos productivos aun)
   /runtime
     app_runtime.py
-    process_person.py
-    contracts.py
+    process_person.py   (shim -> application/use_cases)
+    contracts.py        (shim -> application/ports)
     visualization.py
     perf_monitor.py
   /session
-    session_state.py
-    session_sync.py
-    session_snapshot.py
+    session_state.py      (shim -> domain)
+    session_sync.py       (shim -> domain)
+    session_snapshot.py   (shim -> application/projections)
+    rotation.py           (shim -> domain)
+    error_catalog.py      (shim -> domain)
+    error_normalizer.py   (shim -> domain)
     session_person_manager.py
-    rotation.py
     station.py
   /detectors
     movenet_inference.py
@@ -77,15 +103,15 @@ Bootstrap:
 
 Flujo real implementado:
 
-`CameraWorker -> MoveNet -> SessionPersonManager -> process_person -> sync_session_state_for_person -> emit_session_update -> Frontend`
+`CameraWorker -> MoveNet -> SessionPersonManager -> process_person -> sync_session_state_for_person(domain) -> emit_session_update -> Frontend`
 
 Detalle:
 
 1. `CameraWorker` entrega frame.
 2. `MoveNet` devuelve keypoints por persona detectada.
 3. `SessionPersonManager` resuelve `client_id` fisico y `athlete_X` logico.
-4. `process_person` evalua estacion y detector.
-5. `session_sync` actualiza estado canonico (`assignments/reps/errors`).
+4. `runtime/app_runtime.py` delega en `application/use_cases/process_person_uc.py` para evaluar estacion/detector por persona.
+5. `runtime/app_runtime.py` delega en `domain/session/sync_policy.py` para actualizar estado canonico (`assignments/reps/errors/errors_v2`).
 6. Si hubo cambio observable: broadcast de snapshot `SESSION_UPDATE`.
 7. Frontend aplica snapshot solo si `incoming.version > lastSessionVersion`.
 
@@ -144,9 +170,12 @@ Reglas vigentes:
 
 Backend:
 
-- `session/*`: estado canonico, rotacion, snapshot, sincronizacion.
-- `runtime/*`: orquestacion del loop y puertos/protocolos de procesamiento.
-- `communication/*`: servidor WS y broadcast.
+- `domain/*`: estado canonico de sesion y politicas de negocio (rotacion, sync, normalizacion de errores).
+- `application/*`: puertos, casos de uso y proyecciones de contrato (`SESSION_UPDATE`).
+- `runtime/*`: adapter del loop de vision y orquestacion de frame processing.
+- `communication/*`: adapter WS (parseo/routing de comandos y broadcast).
+- `session/*`: capa de compatibilidad temporal (shims) + modulos aun legacy (`session_person_manager`, `station`).
+- `interfaces/*` y `infrastructure/*`: scaffold de capas para siguientes PRs de migracion.
 - `detectors/*`: inferencia + reglas biomecanicas por ejercicio.
 - `tracking/*`: tracking fisico por centroides.
 
@@ -164,10 +193,13 @@ Fortalezas implementadas:
 - Tests de contrato, integracion y versionado en verde.
 - Runtime canonico desacoplado de GUI directa (`cv2.waitKey` fuera de `run_app_runtime`).
 - Identidad publica consistente (`athlete_X`) en transporte.
+- Extraccion del nucleo de dominio a `backend/domain/*` con shims de compatibilidad en `backend/session/*`.
+- Orquestacion de procesamiento por persona aislada en `application/use_cases/process_person_uc.py` con shims legacy en `runtime/*`.
 
 Limitaciones actuales:
 
-- Aun no existe estructura formal `domain/use_cases/interfaces/infrastructure`.
+- Coexistencia temporal de imports nuevos (`domain/*`, `application/*`) y rutas legacy (`session/*`) hasta cierre de Fase 2.4.
+- Limites de capa aun no son verificables automaticamente por tests de arquitectura (pendiente PR-F2.4-7).
 - Estado solo in-memory (sin persistencia).
 - `SquatDetector` genera señales textuales internas que se normalizan a `errors_v2`; la cobertura de normalización aún es incremental por ejercicio.
 - Logging mayormente por `print`, sin esquema estructurado unificado.
