@@ -1,3 +1,10 @@
+from utils.deprecation import warn_legacy_module
+
+warn_legacy_module(
+    module_name="session.session_snapshot",
+    replacement="application.projections.session_update_projection",
+)
+
 from application.projections.session_update_projection import (
     build_session_update_projection,
 )

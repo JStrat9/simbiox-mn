@@ -249,7 +249,7 @@ Definition of Done:
 
 ## 9.7 Plan activo (Fase 2.4): limites de capas para mitigar Riesgo 2 (evolucion)
 
-Estado global: **in_progress**.
+Estado global: **completed**.
 
 Objetivo:
 
@@ -570,7 +570,7 @@ Definition of Done:
 - Runtime no contiene logica de negocio mas alla de orquestacion de loop.
 - Tests de `process_person` y runtime headless en verde.
 
-### PR-F2.4-7 (Enforcement de limites de capa + limpieza final) - Estado: backlog
+### PR-F2.4-7 (Enforcement de limites de capa + limpieza final) - Estado: completed
 
 Objetivo:
 
@@ -584,6 +584,21 @@ Cambios concretos:
 - `application` no depende de WS/OpenCV/camaras.
 - Consolidar `main.py` como composition root unico.
 - Marcar shims legacy como deprecados para retiro posterior.
+
+Entrega ejecutada:
+
+- Tests de arquitectura por AST agregados:
+- `backend/tests/test_layer_boundaries.py`.
+- Reglas verificadas en tests:
+- `domain/*` no depende de `application/runtime/communication/video/detectors/tracking/websockets/cv2`.
+- `application/*` no depende de `runtime/communication/video/detectors/tracking/websockets/cv2`.
+- Modulos productivos (fuera de `session/*`, `runtime/*`, `tests/*`) no importan shims legacy.
+- `main.py` consolidado como unico import site productivo de `communication.websocket_server`.
+- Advertencias de deprecacion controladas agregadas a shims legacy:
+- `backend/session/{session_state,session_sync,rotation,error_catalog,error_normalizer,session_snapshot}.py`
+- `backend/runtime/{contracts,process_person}.py`
+- helper comun: `backend/utils/deprecation.py`.
+- Guardrails de comportamiento previos preservados (contrato/versionado/runtime).
 
 Modulos (mover/envolver/redefinir):
 

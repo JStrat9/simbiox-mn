@@ -6,7 +6,7 @@ Fecha de corte: 2026-02-25
 
 Estado real implementado:
 
-- Fase activa: Fase 2.4 (plan de limites de capas en curso).
+- Fase activa: Fase 2.4 completada (limites de capa con enforcement en tests).
 - Sincronizacion de sesion: `SESSION_UPDATE` como evento canonico unico.
 - Backend: fuente de verdad unica en memoria (`SessionState`).
 - Frontend: modelo pasivo replace-only por snapshot versionado.
@@ -198,8 +198,9 @@ Fortalezas implementadas:
 
 Limitaciones actuales:
 
-- Coexistencia temporal de imports nuevos (`domain/*`, `application/*`) y rutas legacy (`session/*`) hasta cierre de Fase 2.4.
-- Limites de capa aun no son verificables automaticamente por tests de arquitectura (pendiente PR-F2.4-7).
+- Coexistencia temporal de imports nuevos (`domain/*`, `application/*`) y rutas legacy (`session/*`) durante retiro progresivo post-cierre de Fase 2.4.
+- Shims legacy (`session/*`, `runtime/{contracts,process_person}`) siguen presentes por compatibilidad, pero ya marcados como deprecados con retiro diferido.
+- Limites de capa verificados por tests de arquitectura/import boundaries (`backend/tests/test_layer_boundaries.py`).
 - Estado solo in-memory (sin persistencia).
 - `SquatDetector` genera señales textuales internas que se normalizan a `errors_v2`; la cobertura de normalización aún es incremental por ejercicio.
 - Logging mayormente por `print`, sin esquema estructurado unificado.
@@ -211,7 +212,7 @@ Limitaciones actuales:
 - Mitigacion implementada y en evolucion: `docs/9_tecnical_roadmap.md` (seccion Fase 2.2).
 
 2. Riesgo de evolucion:
-- El monolito modular funciona para MVP, pero faltan limites de capas mas estrictos para escalar sin acoplamiento.
+- Riesgo mitigado parcialmente con limites de capa verificables; persiste deuda de retiro de shims legacy.
 
 ## 4.9 Direccion de evolucion (sin negar el estado real)
 
