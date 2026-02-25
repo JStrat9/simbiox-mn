@@ -118,8 +118,10 @@ class LayerBoundariesTests(unittest.TestCase):
 
     def test_production_modules_do_not_import_legacy_shim_modules(self):
         allowed_legacy_import_sites = {
-            ("main.py", "session.session_person_manager"),
-            ("runtime/app_runtime.py", "session.session_person_manager"),
+            (
+                "interfaces/runtime/session_person_manager_adapter.py",
+                "session.session_person_manager",
+            ),
         }
         excluded_roots = {
             BACKEND_ROOT / "tests",

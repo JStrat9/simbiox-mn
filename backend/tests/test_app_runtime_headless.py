@@ -14,7 +14,9 @@ from runtime import app_runtime
 from runtime.app_runtime import run_app_runtime
 from runtime.perf_monitor import NullPerfReporter
 from runtime.visualization import NullFramePresenter
-from session.session_person_manager import SessionPersonManager
+from interfaces.runtime.session_person_manager_adapter import (
+    build_legacy_session_person_manager_adapter,
+)
 from session.session_state import SessionState
 
 
@@ -93,8 +95,11 @@ class _SessionUpdatePublisherSpy:
 class AppRuntimeHeadlessTests(unittest.TestCase):
     def test_headless_runtime_runs_without_gui_and_updates_state(self):
         state = SessionState()
-        manager = SessionPersonManager(max_persons=6, distance_threshold=120.0)
-        manager.session_state = state
+        manager = build_legacy_session_person_manager_adapter(
+            session_state=state,
+            max_persons=6,
+            distance_threshold=120.0,
+        )
 
         side_queue = Queue(maxsize=1)
         fake_camera = _FakeCamera(side_queue)
@@ -123,8 +128,11 @@ class AppRuntimeHeadlessTests(unittest.TestCase):
 
     def test_headless_runtime_uses_injected_session_update_publisher(self):
         state = SessionState()
-        manager = SessionPersonManager(max_persons=6, distance_threshold=120.0)
-        manager.session_state = state
+        manager = build_legacy_session_person_manager_adapter(
+            session_state=state,
+            max_persons=6,
+            distance_threshold=120.0,
+        )
 
         side_queue = Queue(maxsize=1)
         fake_camera = _FakeCamera(side_queue)
@@ -155,6 +163,10 @@ class AppRuntimeHeadlessTests(unittest.TestCase):
     def test_runtime_module_has_no_direct_ws_transport_dependency(self):
         source = inspect.getsource(app_runtime)
         self.assertNotIn("communication.websocket_server", source)
+
+    def test_runtime_module_has_no_direct_legacy_session_manager_dependency(self):
+        source = inspect.getsource(app_runtime)
+        self.assertNotIn("session.session_person_manager", source)
 
 
 if __name__ == "__main__":

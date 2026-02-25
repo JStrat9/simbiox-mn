@@ -8,21 +8,24 @@ from communication.websocket_server import (
     register_rotate_station_handler,
     register_session_state,
 )
+from application.ports.session_person_manager_ports import RuntimeSessionManagerPort
+from config import MAX_PERSONS
+from domain.session.session_state import SessionState
+from interfaces.runtime.session_person_manager_adapter import (
+    build_legacy_session_person_manager_adapter,
+)
 from runtime.app_runtime import run_app_runtime
 from runtime.perf_monitor import PsutilPerfReporter
 from runtime.visualization import OpenCVFramePresenter, OpenCVKeypressControl
-from domain.session.session_state import SessionState
-from session.session_person_manager import SessionPersonManager
-from config import MAX_PERSONS
 
 session_state = SessionState()
-session_manager = SessionPersonManager(
+session_manager: RuntimeSessionManagerPort = build_legacy_session_person_manager_adapter(
+    session_state=session_state,
     max_persons=MAX_PERSONS,
     t_active=0.8,
     t_lost=2.0,
     distance_threshold=120.0,
 )
-session_manager.session_state = session_state
 register_session_state(session_state)
 
 

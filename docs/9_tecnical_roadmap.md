@@ -678,7 +678,7 @@ Definition of Done:
 - No se aceptan nuevos imports legacy fuera de allowlist.
 - Suite backend/frontend en verde.
 
-### PR-F2.5-2 (Puertos de identidad/estacion para desacople de SessionPersonManager) - Estado: backlog
+### PR-F2.5-2 (Puertos de identidad/estacion para desacople de SessionPersonManager) - Estado: completed
 
 Objetivo:
 
@@ -689,6 +689,24 @@ Cambios concretos:
 - Definir puertos en `application/ports` para resolucion de identidad y provision de estacion.
 - Tipar `runtime/app_runtime.py` y wiring en `main.py` contra puertos, no clases concretas legacy.
 - Mantener adapter concreto actual para compatibilidad funcional.
+
+Entrega ejecutada:
+
+- Puerto agregado: `backend/application/ports/session_person_manager_ports.py`.
+- Adapter de compatibilidad agregado:
+- `backend/interfaces/runtime/session_person_manager_adapter.py`.
+- `backend/runtime/app_runtime.py`:
+- elimina dependencia directa tipada a `session.session_person_manager.SessionPersonManager`.
+- consume `RuntimeSessionManagerPort` y delega `identity_resolver/station_provider` al puerto.
+- `backend/main.py`:
+- elimina import directo de `session.session_person_manager`.
+- wiring migrado a `build_legacy_session_person_manager_adapter(...)`.
+- Guardrails/inventario actualizados:
+- `backend/tests/test_layer_boundaries.py` allowlist migrada al adapter canonico.
+- `backend/tests/test_legacy_import_inventory.py` baseline ajustado a nueva topologia.
+- Tests de runtime headless actualizados para construir manager via adapter.
+- Tests de adapter agregados:
+- `backend/tests/test_session_person_manager_adapter.py`.
 
 Modulos (mover/envolver/redefinir):
 

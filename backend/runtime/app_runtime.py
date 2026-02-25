@@ -15,7 +15,7 @@ from application.ports.session_update_publisher import (
     NullSessionUpdatePublisher,
     SessionUpdatePublisher,
 )
-from application.ports.process_person_ports import IdentityResolution
+from application.ports.session_person_manager_ports import RuntimeSessionManagerPort
 from application.use_cases.process_person_uc import process_person
 from domain.session.session_state import SessionState
 from domain.session.sync_policy import sync_session_state_for_person
@@ -26,7 +26,6 @@ from runtime.visualization import (
     FramePresenter,
     RuntimeControl,
 )
-from session.session_person_manager import SessionPersonManager
 from utils.draw import draw_angles, draw_edges, draw_keypoints
 from utils.draw_feedback import draw_feedback
 
@@ -42,7 +41,7 @@ class CameraPort(Protocol):
 def run_app_runtime(
     *,
     session_state: SessionState,
-    session_manager: SessionPersonManager,
+    session_manager: RuntimeSessionManagerPort,
     frame_presenter: FramePresenter | None = None,
     runtime_control: RuntimeControl | None = None,
     perf_reporter: PerfReporter | None = None,
@@ -83,16 +82,6 @@ def run_app_runtime(
 
     print("[INFO] Iniciando loop principal...")
 
-    class RuntimeIdentityResolver:
-        def resolve(self, centroid) -> IdentityResolution:
-            client_id, session_person_id = session_manager.resolve_identity(centroid)
-            return IdentityResolution(
-                client_id=client_id,
-                session_person_id=session_person_id,
-            )
-
-    identity_resolver = RuntimeIdentityResolver()
-
     try:
         while True:
             if runtime_control.should_stop():
@@ -123,7 +112,7 @@ def run_app_runtime(
                 output = process_person(
                     person_kp,
                     session_state=session_state,
-                    identity_resolver=identity_resolver,
+                    identity_resolver=session_manager,
                     station_provider=session_manager,
                     detector_provider=detector_manager,
                     sync_state_fn=sync_session_state_for_person,
