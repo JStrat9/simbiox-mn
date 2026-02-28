@@ -69,24 +69,24 @@ Semantica:
 - Loop canonico de ejecucion frame a frame.
 - Dispara publicacion de snapshot cuando detecta cambio observable.
 
-3. `backend/runtime/process_person.py`
-- Caso de uso por persona detectada.
-- Orquesta identidad, estacion, detector y sincronizacion.
+3. `backend/runtime/app_runtime.py`
+- Loop principal de procesamiento por frame.
+- Orquesta captura, inferencia y delega casos de uso.
 
-4. `backend/session/session_state.py`
+4. `backend/domain/session/session_state.py`
 - Estado de sesion canonico en memoria.
 
-5. `backend/session/session_sync.py`
+5. `backend/domain/session/sync_policy.py`
 - Reglas de sincronizacion de asignaciones, reps y errores.
 - Normaliza errores de detector a `errors_v2` antes de persistir en `SessionState`.
 
-6. `backend/session/session_snapshot.py`
+6. `backend/application/projections/session_update_projection.py`
 - Construye payload `SESSION_UPDATE` desde estado canonico.
 
-7. `backend/session/rotation.py`
+7. `backend/domain/session/rotation_policy.py`
 - Rotacion circular backend-only con incremento de `version`.
 
-8. `backend/session/session_person_manager.py`
+8. `backend/interfaces/runtime/session_person_manager.py`
 - Continuidad de identidad logica `athlete_X`.
 
 9. `backend/detectors/movenet_inference.py`
@@ -94,10 +94,6 @@ Semantica:
 
 10. `backend/detectors/squat_detector.py`
 - Maquina de estados biomecanica para squat.
-
-11. `backend/feedback/event_mapper.py`
-- Telemetria interna por atleta.
-- No produce eventos WS de negocio.
 
 ### Frontend
 
