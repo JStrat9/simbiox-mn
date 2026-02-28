@@ -618,7 +618,7 @@ Definition of Done:
 
 ## 9.8 Plan activo (Fase 2.5): retiro progresivo de shims legacy para cerrar Riesgo 2 (evolucion)
 
-Estado global: **in_progress**.
+Estado global: **completed**.
 
 Objetivo:
 
@@ -834,7 +834,7 @@ Definition of Done:
 - Tests de shim quedan acotados a verificacion de compatibilidad temporal.
 - Suites backend/frontend en verde.
 
-### PR-F2.5-5 (Retiro final de shims internos y cierre del Riesgo 2 residual) - Estado: backlog
+### PR-F2.5-5 (Retiro final de shims internos y cierre del Riesgo 2 residual) - Estado: DONE
 
 Objetivo:
 
@@ -845,6 +845,26 @@ Cambios concretos:
 - Retirar shims internos de `session/*` y `runtime/*` que ya no tengan uso productivo.
 - Endurecer `test_layer_boundaries.py` para prohibicion total de imports legacy internos.
 - Actualizar documentacion y estado de riesgos post-retiro.
+
+Entrega ejecutada:
+
+- Shims internos eliminados de backend:
+- `backend/session/{session_state,session_sync,session_snapshot,rotation,error_catalog,error_normalizer,session_person_manager,station}.py`
+- `backend/runtime/{contracts,process_person}.py`
+- Tests de compatibilidad shim retirados:
+- `backend/tests/test_domain_shims.py`
+- `backend/tests/test_process_person_shims.py`
+- `backend/tests/test_session_snapshot_shim.py`
+- `backend/tests/test_session_person_manager_shims.py`
+- Guardrails endurecidos sin excepciones:
+- `backend/tests/test_layer_boundaries.py` ahora prohíbe imports legacy en todo `backend/*` (incluidos tests).
+- `backend/tests/test_legacy_import_inventory.py` baseline en cero imports legacy.
+- Limpieza final de deuda técnica asociada:
+- `backend/utils/deprecation.py` eliminado al quedar sin uso.
+- Validación ejecutada:
+- búsqueda global de imports legacy sin resultados funcionales,
+- suite `pytest` completa en verde,
+- checks de guardrails en verde.
 
 Modulos (mover/envolver/redefinir):
 
@@ -867,4 +887,4 @@ Definition of Done:
 
 - No quedan imports legacy en codigo productivo interno.
 - Limites de capa verificables sin allowlist transitoria de shims.
-- Riesgo de evolucion marcado como mitigado (con deuda residual explicitada si existiera).
+- Riesgo 2 de evolucion cerrado sin deuda residual de compatibilidad interna.

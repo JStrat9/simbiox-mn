@@ -10,18 +10,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 
-EXPECTED_LEGACY_IMPORTS: set[tuple[str, str]] = {
-    ("tests/test_domain_shims.py", "session.error_catalog"),
-    ("tests/test_domain_shims.py", "session.error_normalizer"),
-    ("tests/test_domain_shims.py", "session.rotation"),
-    ("tests/test_domain_shims.py", "session.session_state"),
-    ("tests/test_domain_shims.py", "session.session_sync"),
-    ("tests/test_process_person_shims.py", "runtime.contracts"),
-    ("tests/test_process_person_shims.py", "runtime.process_person"),
-    ("tests/test_session_person_manager_shims.py", "session.session_person_manager"),
-    ("tests/test_session_person_manager_shims.py", "session.station"),
-    ("tests/test_session_snapshot_shim.py", "session.session_snapshot"),
-}
+EXPECTED_LEGACY_IMPORTS: set[tuple[str, str]] = set()
 
 
 def _iter_python_files(root: Path):
@@ -41,7 +30,19 @@ def _matches_prefix(module_name: str, prefix: str) -> bool:
 def _is_legacy_import(module_name: str) -> bool:
     if _matches_prefix(module_name, "session"):
         return True
-    return module_name in {"runtime.contracts", "runtime.process_person"}
+    legacy_modules = {
+        "runtime.contracts",
+        "runtime.process_person",
+        "session_snapshot",
+        "session_state",
+        "session_sync",
+        "rotation",
+        "error_catalog",
+        "error_normalizer",
+        "session_person_manager",
+        "station",
+    }
+    return any(_matches_prefix(module_name, legacy_module) for legacy_module in legacy_modules)
 
 
 def _resolve_import_from(path: Path, module: str | None, level: int) -> str:

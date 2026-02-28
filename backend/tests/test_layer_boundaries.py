@@ -32,18 +32,53 @@ def _iter_imports(path: Path):
             for alias in node.names:
                 yield alias.name, node.lineno
         elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                yield node.module, node.lineno
+            module_name = _resolve_import_from(path, node.module, node.level)
+            if module_name:
+                yield module_name, node.lineno
 
 
 def _matches_prefix(module_name: str, prefix: str) -> bool:
     return module_name == prefix or module_name.startswith(f"{prefix}.")
 
 
+def _resolve_import_from(path: Path, module: str | None, level: int) -> str:
+    if level <= 0:
+        return module or ""
+
+    rel = path.relative_to(BACKEND_ROOT)
+    pkg_parts = list(rel.with_suffix("").parts[:-1])
+    if level == 1:
+        base_parts = pkg_parts
+    else:
+        trim = level - 1
+        base_parts = pkg_parts[:-trim] if trim <= len(pkg_parts) else []
+
+    if module:
+        return ".".join(base_parts + module.split("."))
+    return ".".join(base_parts)
+
+
+LEGACY_EXACT_MODULES = {
+    "runtime.contracts",
+    "runtime.process_person",
+    "session_snapshot",
+    "session_state",
+    "session_sync",
+    "rotation",
+    "error_catalog",
+    "error_normalizer",
+    "session_person_manager",
+    "station",
+}
+
+
 def _is_legacy_import(module_name: str) -> bool:
     if _matches_prefix(module_name, "session"):
         return True
-    return module_name in {"runtime.contracts", "runtime.process_person"}
+    return any(
+        _matches_prefix(module_name, legacy_module)
+        for legacy_module in LEGACY_EXACT_MODULES
+    )
 
 
 class LayerBoundariesTests(unittest.TestCase):
@@ -116,36 +151,6 @@ class LayerBoundariesTests(unittest.TestCase):
             else None,
         )
 
-    def test_production_modules_do_not_import_legacy_shim_modules(self):
-        allowed_legacy_import_sites: set[tuple[str, str]] = set()
-        excluded_roots = {
-            BACKEND_ROOT / "tests",
-            BACKEND_ROOT / "session",
-        }
-        violations: list[str] = []
-
-        for path in _iter_python_files(BACKEND_ROOT):
-            if any(root in path.parents or path == root for root in excluded_roots):
-                continue
-            rel = path.relative_to(BACKEND_ROOT).as_posix()
-            for module_name, line in _iter_imports(path):
-                if not _is_legacy_import(module_name):
-                    continue
-                if (rel, module_name) in allowed_legacy_import_sites:
-                    continue
-                violations.append(f"{rel}:{line} -> {module_name}")
-
-        self.assertEqual(
-            [],
-            violations,
-            msg=(
-                "Production modules imported non-allowlisted legacy modules:\n- "
-                + "\n- ".join(violations)
-            )
-            if violations
-            else None,
-        )
-
     def test_main_is_unique_production_import_site_for_communication_bootstrap(self):
         bootstrap_modules = {
             "communication.websocket_server",
@@ -173,22 +178,13 @@ class LayerBoundariesTests(unittest.TestCase):
             else None,
         )
 
-    def test_only_shim_tests_are_allowed_to_import_legacy_modules(self):
-        allowed_shim_test_files = {
-            "tests/test_domain_shims.py",
-            "tests/test_process_person_shims.py",
-            "tests/test_session_snapshot_shim.py",
-            "tests/test_session_person_manager_shims.py",
-        }
-        tests_root = BACKEND_ROOT / "tests"
+    def test_no_legacy_imports_anywhere_in_backend(self):
         violations: list[str] = []
 
-        for path in _iter_python_files(tests_root):
+        for path in _iter_python_files(BACKEND_ROOT):
             rel = path.relative_to(BACKEND_ROOT).as_posix()
             for module_name, line in _iter_imports(path):
                 if not _is_legacy_import(module_name):
-                    continue
-                if rel in allowed_shim_test_files:
                     continue
                 violations.append(f"{rel}:{line} -> {module_name}")
 
@@ -196,7 +192,7 @@ class LayerBoundariesTests(unittest.TestCase):
             [],
             violations,
             msg=(
-                "Only shim tests may import legacy shim modules:\n- "
+                "Legacy imports are forbidden in all backend modules:\n- "
                 + "\n- ".join(violations)
             )
             if violations
