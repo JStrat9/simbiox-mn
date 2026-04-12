@@ -56,6 +56,26 @@ class _FakeCamera:
         self.stopped = True
 
 
+class _NoFrameCamera:
+    def __init__(self):
+        self.stopped = False
+
+    def start(self):
+        return True
+
+    def stop(self):
+        self.stopped = True
+
+    def status(self):
+        return {
+            "start_attempted": True,
+            "camera_opened": True,
+            "first_frame_received": False,
+            "consecutive_read_failures": 100,
+            "degraded_reason": "camera_no_frames",
+        }
+
+
 class _PresenterSpy(NullFramePresenter):
     def __init__(self):
         self.present_calls = 0
@@ -155,6 +175,38 @@ class AppRuntimeHeadlessTests(unittest.TestCase):
         )
 
         self.assertEqual(publisher.publish_calls, 1)
+
+    def test_runtime_fails_cleanly_when_camera_never_produces_initial_frame(self):
+        state = SessionState()
+        manager = build_legacy_session_person_manager_adapter(
+            session_state=state,
+            max_persons=6,
+            distance_threshold=120.0,
+        )
+
+        side_queue = Queue(maxsize=1)
+        no_frame_camera = _NoFrameCamera()
+        presenter = _PresenterSpy()
+        perf = _PerfSpy()
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Camera startup failed: camera_no_frames",
+        ):
+            run_app_runtime(
+                session_state=state,
+                session_manager=manager,
+                frame_presenter=presenter,
+                perf_reporter=perf,
+                side_queue=side_queue,
+                side_camera=no_frame_camera,
+                movenet=_FakeMoveNet(),
+                detector_manager=_FakeDetectorManager(),
+                initial_frame_timeout_s=0.01,
+            )
+
+        self.assertTrue(no_frame_camera.stopped)
+        self.assertTrue(presenter.closed)
 
     def test_canonical_loop_has_no_direct_waitkey_dependency(self):
         source = inspect.getsource(app_runtime.run_app_runtime)

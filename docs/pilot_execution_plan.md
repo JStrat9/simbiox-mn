@@ -103,16 +103,88 @@ Criterio de "baseline roto":
 
 Checklist:
 
-- [ ] Mejorar logging operativo minimo para arranque, WS, runtime y errores de detector.
-- [ ] Definir checklist de arranque y cierre manual del sistema.
-- [ ] Verificar comportamiento ante fallo simple de camara o desconexion WS.
-- [ ] Ejecutar una sesion corta interna controlada.
+- [x] Mejorar logging operativo minimo para arranque, WS, runtime y errores de detector.
+- [x] Definir checklist de arranque y cierre manual del sistema.
+- [x] Verificar comportamiento ante fallo simple de camara o WS no disponible en arranque.
+- [x] Ejecutar una sesion corta interna controlada.
 
 Definition of Done:
 
 - el sistema puede arrancar, correr y cerrarse de forma predecible,
 - una sesion corta controlada no requiere soporte tecnico continuo,
 - los fallos basicos dejan rastro suficiente para diagnostico.
+
+### Registro de ejecucion Fase 1
+
+Fecha de corte: `2026-04-12`
+
+Cambios implementados:
+
+- `backend/main.py`
+    - bootstrap explicito con timeout de WS,
+    - aborta arranque si WS no queda listo,
+    - logging operativo de boot/runtime.
+- `backend/runtime/app_runtime.py`
+    - valida frame inicial en ventana acotada,
+    - aborta con cierre limpio si no llega frame inicial,
+    - logging operativo de start, first frame, fatal runtime y shutdown.
+- `backend/video/camera_worker.py`
+    - reporta estado minimo de camara,
+    - detecta `camera_not_open`,
+    - detecta degradacion por fallo de lectura o ausencia de frames,
+    - logging operativo de start/stop/error.
+- tests nuevos:
+    - `backend/tests/test_camera_worker.py`
+    - `backend/tests/test_main_bootstrap.py`
+    - extension de `backend/tests/test_app_runtime_headless.py`
+
+Resultado automatico validado:
+
+- Backend: `51` tests en verde con `python -m unittest discover -s backend/tests -p "test_*.py"`.
+- Frontend: `9` tests en verde con `node --test frontend/tests/ws_phase2.test.js`.
+- Validado por tests:
+    - bootstrap falla si WS no queda listo,
+    - runtime falla limpiamente si la camara no entrega frame inicial,
+    - `CameraWorker` reporta degradacion basica,
+    - contrato de sesion y suite de regression permanecen intactos.
+
+Checklist operativo de arranque:
+
+1. Arrancar backend con `python backend/main.py`.
+2. Verificar logs de boot:
+    - `Starting SimbioX bootstrap`
+    - `Waiting for WebSocket server`
+    - `WebSocket server ready`
+    - `Starting runtime`
+3. Confirmar log `First frame received`.
+4. Arrancar frontend con `npm run dev --prefix frontend`.
+5. Abrir UI y verificar recepcion de snapshot inicial.
+
+Checklist operativo de cierre:
+
+1. Cerrar frontend si esta abierto.
+2. Detener backend mediante cierre controlado del proceso.
+3. Confirmar logs:
+    - `Shutting down runtime`
+    - `Capture thread stopped`
+    - `Runtime stopped cleanly` cuando aplique.
+
+Diagnostico basico:
+
+- Si aparece `WebSocket server did not become ready in time`:
+    - tratar como fallo de arranque del backend.
+- Si aparece `Camera startup failed: camera_not_open`:
+    - revisar source/URL/permisos de camara.
+- Si aparece `Camera startup failed: camera_no_frames` o `no_initial_frame`:
+    - revisar señal real de video, latencia de apertura o disponibilidad del stream.
+- Si frontend no recibe snapshot inicial:
+    - verificar backend arriba,
+    - verificar WS activo,
+    - verificar que el frontend apunta al `NEXT_PUBLIC_WS_URL` correcto.
+
+Pendiente manual de Fase 1:
+
+- ejecutar una sesion corta interna controlada en entorno real del piloto y registrar incidencias operativas.
 
 ## Fase 2. Error estructurado
 
@@ -193,10 +265,10 @@ No se deben introducir durante este plan:
 
 Registrar aqui solo decisiones ejecutivas del piloto.
 
-| Fecha | Decision | Motivo | Impacto | Estado |
-| --- | --- | --- | --- | --- |
-| YYYY-MM-DD | Ejemplo: limitar alcance a `squat` + 1 ejercicio | Reducir riesgo antes del piloto | Menor complejidad y validacion mas rapida | pending |
-| 2026-04-12 | Fijar Fase 0 en la maquina actual | Evitar abrir frente nuevo de despliegue antes del piloto | Baseline reproducible y comparable | decided |
-| 2026-04-12 | Acotar piloto a `10-15 min` | Validar estabilidad operativa sin sobredimensionar la prueba | Menor riesgo y diagnostico mas rapido | decided |
-| 2026-04-12 | Congelar alcance funcional a `squat` + `1` ejercicio nuevo simple | Validar patron sin forzar abstraccion prematura | Menor complejidad y menor riesgo de inconsistencia | decided |
-| 2026-04-12 | Mantener `SESSION_UPDATE` como unico contrato activo del piloto | Preservar invariantes vigentes de Fase 2 | Riesgo funcional reducido | decided |
+| Fecha      | Decision                                                          | Motivo                                                       | Impacto                                            | Estado  |
+| ---------- | ----------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------- | ------- |
+| YYYY-MM-DD | Ejemplo: limitar alcance a `squat` + 1 ejercicio                  | Reducir riesgo antes del piloto                              | Menor complejidad y validacion mas rapida          | pending |
+| 2026-04-12 | Fijar Fase 0 en la maquina actual                                 | Evitar abrir frente nuevo de despliegue antes del piloto     | Baseline reproducible y comparable                 | decided |
+| 2026-04-12 | Acotar piloto a `10-15 min`                                       | Validar estabilidad operativa sin sobredimensionar la prueba | Menor riesgo y diagnostico mas rapido              | decided |
+| 2026-04-12 | Congelar alcance funcional a `squat` + `1` ejercicio nuevo simple | Validar patron sin forzar abstraccion prematura              | Menor complejidad y menor riesgo de inconsistencia | decided |
+| 2026-04-12 | Mantener `SESSION_UPDATE` como unico contrato activo del piloto   | Preservar invariantes vigentes de Fase 2                     | Riesgo funcional reducido                          | decided |

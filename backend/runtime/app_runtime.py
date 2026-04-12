@@ -38,6 +38,46 @@ class CameraPort(Protocol):
         ...
 
 
+def _camera_status(camera: CameraPort | None) -> dict[str, Any]:
+    if camera is None:
+        return {}
+
+    status_fn = getattr(camera, "status", None)
+    if callable(status_fn):
+        try:
+            status = status_fn()
+            if isinstance(status, dict):
+                return status
+        except Exception:
+            return {}
+    return {}
+
+
+def _wait_for_initial_frame(
+    *,
+    side_queue: Queue,
+    side_camera: CameraPort,
+    timeout_s: float,
+) -> None:
+    deadline = time.monotonic() + timeout_s
+
+    while time.monotonic() < deadline:
+        if not side_queue.empty():
+            print("[INFO][RUNTIME] First frame received", flush=True)
+            return
+
+        status = _camera_status(side_camera)
+        degraded_reason = status.get("degraded_reason")
+        if degraded_reason == "camera_not_open":
+            raise RuntimeError("Camera startup failed: camera_not_open")
+
+        time.sleep(0.01)
+
+    status = _camera_status(side_camera)
+    degraded_reason = status.get("degraded_reason") or "no_initial_frame"
+    raise RuntimeError(f"Camera startup failed: {degraded_reason}")
+
+
 def run_app_runtime(
     *,
     session_state: SessionState,
@@ -50,6 +90,7 @@ def run_app_runtime(
     movenet: Any | None = None,
     detector_manager: Any | None = None,
     session_update_publisher: SessionUpdatePublisher | None = None,
+    initial_frame_timeout_s: float = 3.0,
 ):
     if frame_presenter is None:
         frame_presenter = NullFramePresenter()
@@ -76,13 +117,19 @@ def run_app_runtime(
         from video.camera_worker import CameraWorker
 
         side_camera = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
-    side_camera.start()
 
     palette = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255)]
 
-    print("[INFO] Iniciando loop principal...")
+    print("[INFO][RUNTIME] Starting runtime loop...", flush=True)
 
     try:
+        side_camera.start()
+        _wait_for_initial_frame(
+            side_queue=side_queue,
+            side_camera=side_camera,
+            timeout_s=initial_frame_timeout_s,
+        )
+
         while True:
             if runtime_control.should_stop():
                 break
@@ -152,6 +199,10 @@ def run_app_runtime(
 
             frame_presenter.present(frame_s)
             perf_reporter.tick()
+    except Exception as exc:
+        print(f"[ERROR][RUNTIME] Fatal runtime exception: {exc}", flush=True)
+        raise
     finally:
+        print("[INFO][RUNTIME] Shutting down runtime...", flush=True)
         side_camera.stop()
         frame_presenter.close()

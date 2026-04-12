@@ -48,6 +48,7 @@ class WebSocketSessionUpdatePublisher:
 
 
 def main():
+    print("[INFO][BOOT] Starting runtime...", flush=True)
     run_app_runtime(
         session_state=session_state,
         session_manager=session_manager,
@@ -56,24 +57,42 @@ def main():
         perf_reporter=PsutilPerfReporter(label="MAIN"),
         session_update_publisher=WebSocketSessionUpdatePublisher(),
     )
+    print("[INFO][BOOT] Runtime stopped cleanly", flush=True)
+
+
+def start_ws_server_thread(ready_event: threading.Event) -> threading.Thread:
+    def run_ws_server():
+        asyncio.run(start_server(ready_event=ready_event))
+
+    ws_thread = threading.Thread(target=run_ws_server, daemon=True)
+    ws_thread.start()
+    return ws_thread
+
+
+def bootstrap_app(ws_ready_timeout: float = 5.0) -> int:
+    print("[INFO][BOOT] Starting SimbioX bootstrap...", flush=True)
+    ws_ready_event = threading.Event()
+    start_ws_server_thread(ws_ready_event)
+
+    print("[INFO][BOOT] Waiting for WebSocket server...", flush=True)
+    if not ws_ready_event.wait(timeout=ws_ready_timeout):
+        print(
+            "[ERROR][BOOT] WebSocket server did not become ready in time",
+            flush=True,
+        )
+        return 1
+
+    print("[INFO][BOOT] WebSocket server ready", flush=True)
+    time.sleep(0.5)
+
+    try:
+        main()
+    except Exception as exc:
+        print(f"[ERROR][BOOT] Fatal runtime error: {exc}", flush=True)
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    ws_ready_event = threading.Event()
-
-    def run_ws_server():
-        asyncio.run(start_server(ready_event=ws_ready_event))
-
-    # WebSocket server thread
-    ws_thread = threading.Thread(target=run_ws_server, daemon=True)
-    ws_thread.start()
-
-    # Esperar a que el servidor WebSocket esté listo
-    print("[INFO] Esperando a que el servidor WebSocket esté listo...")
-    ws_ready_event.wait(timeout=5.0)
-    print("[INFO] Servidor WebSocket listo!")
-
-    # Pequeña pausa adicional para asegurar que todo está inicializado
-    time.sleep(0.5)
-
-    main()
+    raise SystemExit(bootstrap_app())
