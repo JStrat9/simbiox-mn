@@ -10,7 +10,7 @@ from detectors.keypoints_movenet import (
     extract_side_keypoints,
 )
 from config import (
-    KNEE_MIN_ANGLE, 
+    KNEE_MIN_ANGLE,
     KNEE_MAX_ANGLE,
     PERFECT_DEPTH_MIN,
     PERFECT_DEPTH_MAX,
@@ -18,6 +18,27 @@ from config import (
     KNEE_FORWARD_THRESHOLD,
     ERROR_REPEAT_THRESHOLD,
 )
+from domain.errors.error_catalog import (
+    default_message_key_for_code,
+    default_severity_for_code,
+)
+
+
+_CODE_TO_DISPLAY: dict[str, str] = {
+    "DEPTH_INSUFFICIENT": "No bajas lo suficiente",
+    "DEPTH_EXCESSIVE":    "Baja demasiado",
+    "BACK_ROUNDED":       "Espalda encorvada",
+    "KNEE_FORWARD":       "Rodillas adelantadas",
+}
+
+
+def _make_error(code: str, **metadata_fields) -> dict:
+    return {
+        "code": code,
+        "message_key": default_message_key_for_code(code),
+        "severity": default_severity_for_code(code),
+        "metadata": {k: round(v, 2) if isinstance(v, float) else v for k, v in metadata_fields.items()},
+    }
 
 
 class SquatDetector:
@@ -31,7 +52,7 @@ class SquatDetector:
         self.squat_errors_sent = set()
         self.last_valid_knee_angle = 90
         self.aborted_descend = False
-        print("🔥 SquatDetector creado", id(self))
+        print("[DETECTOR] SquatDetector created", id(self))
 
 
     def analyze(self, person_kp: np.ndarray):
@@ -81,9 +102,9 @@ class SquatDetector:
         # -----------------------
         # Errors initialization
         # -----------------------
-        current_errors  = []
+        current_errors_v2: list[dict] = []
 
-        rep_feedback = []
+        rep_feedback: list[str] = []
 
 
         # -----------------------
@@ -102,7 +123,7 @@ class SquatDetector:
                 self.state = "up"
                 # Aborted descent
                 if self.aborted_descend:
-                    current_errors.append("No bajas lo suficiente")
+                    current_errors_v2.append(_make_error("DEPTH_INSUFFICIENT", knee_angle=knee_angle))
                 self.aborted_descend = False
         elif self.state == "down" and in_mid_zone:
             self.state = "ascending"
@@ -117,18 +138,19 @@ class SquatDetector:
         
 
         if in_too_deep_zone:
-            current_errors .append("Baja demasiado")
+            current_errors_v2.append(_make_error("DEPTH_EXCESSIVE", knee_angle=knee_angle))
 
         if in_mid_zone or in_depth_zone:
             if hip_angle < LEAN_THRESHOLD:
-                current_errors.append("Espalda encorvada")
+                current_errors_v2.append(_make_error("BACK_ROUNDED", hip_angle=hip_angle))
             if ankle_angle > KNEE_FORWARD_THRESHOLD:
-                current_errors.append("Rodillas adelantadas")
+                current_errors_v2.append(_make_error("KNEE_FORWARD", ankle_angle=ankle_angle))
 
         if self.state in ("descending", "down", "ascending"):
-            for err in current_errors:
-                self.current_rep_errors[err] = (
-                    self.current_rep_errors.get(err, 0) +1
+            for err in current_errors_v2:
+                code = err["code"]
+                self.current_rep_errors[code] = (
+                    self.current_rep_errors.get(code, 0) + 1
                 )
 
 
@@ -142,7 +164,9 @@ class SquatDetector:
                     self.squat_errors_sent.add(err)
         
         
-        feedback_to_send = " | ".join(feedback_to_send) if feedback_to_send else ""
+        feedback_to_send = " | ".join(
+            _CODE_TO_DISPLAY.get(code, code) for code in feedback_to_send
+        ) if feedback_to_send else ""
 
         if self.state == "up" and self.reached_depth:
             self.first_squat_done = True
@@ -156,11 +180,11 @@ class SquatDetector:
             "angles": {
                 "knee": knee_angle,
                 "hip": hip_angle,
-                # "back": back_angle,
                 "ankle": ankle_angle,
             },
-            "errors": current_errors,
-            "feedback": feedback_to_send
+            "errors": [e["code"] for e in current_errors_v2],
+            "errors_v2": current_errors_v2,
+            "feedback": feedback_to_send,
         }
 
 

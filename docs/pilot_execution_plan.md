@@ -190,16 +190,43 @@ Pendiente manual de Fase 1:
 
 Checklist:
 
-- [ ] Hacer que el detector entregue `errors_v2` estructurado.
-- [ ] Mantener `errors` legacy derivado para compatibilidad.
-- [ ] Ajustar consumo interno minimo sin alterar `SESSION_UPDATE`.
-- [ ] Validar que versionado y snapshot no cambian de semantica.
+- [x] Hacer que el detector entregue `errors_v2` estructurado.
+- [x] Mantener `errors` legacy derivado para compatibilidad.
+- [x] Ajustar consumo interno minimo sin alterar `SESSION_UPDATE`.
+- [x] Validar que versionado y snapshot no cambian de semantica.
 
 Definition of Done:
 
 - errores estructurados operativos,
 - compatibilidad backward preservada,
 - mismo comportamiento observable de sincronizacion.
+
+### Registro de ejecucion Fase 2
+
+Fecha de corte: `2026-04-12`
+
+Cambios implementados:
+
+- `backend/detectors/squat_detector.py`
+    - sustitucion de strings en español por codigos estables (`DEPTH_INSUFFICIENT`, etc.),
+    - cada error incluye el angulo biomedanico causal en `metadata` (antecedente de `contributing_features` post-piloto),
+    - `errors_v2` disponible en el resultado del detector de forma nativa,
+    - `errors` se deriva de `errors_v2` en el mismo resultado para compatibilidad,
+    - campo `feedback` mantiene texto legible para el overlay visual,
+    - `sync_policy` toma el path directo `isinstance(raw_errors_v2, list)` en lugar del fallback de normalizacion de texto.
+- tests nuevos: `backend/tests/test_squat_detector_structured.py` (9 tests).
+
+Resultado automatico validado:
+
+- Backend: `60` tests en verde con `python -m unittest discover -s backend/tests -p "test_*.py"`.
+- Frontend: `9` tests en verde con `node --test frontend/tests/ws_phase2.test.js`.
+
+Nota tecnica:
+
+- El campo `metadata` de cada `ErrorV2` incluye el angulo biomedanico causal del error correspondiente
+  (ej: `ankle_angle` para `KNEE_FORWARD`, `hip_angle` para `BACK_ROUNDED`).
+  Esto es el antecedente directo de `ErrorPrediction.contributing_features` de la vision post-piloto,
+  sin introducir `FeatureExtractor` ni `ErrorEvaluator` formal.
 
 ## Fase 3. Limpieza minima del detector actual
 
@@ -272,3 +299,4 @@ Registrar aqui solo decisiones ejecutivas del piloto.
 | 2026-04-12 | Acotar piloto a `10-15 min`                                       | Validar estabilidad operativa sin sobredimensionar la prueba | Menor riesgo y diagnostico mas rapido              | decided |
 | 2026-04-12 | Congelar alcance funcional a `squat` + `1` ejercicio nuevo simple | Validar patron sin forzar abstraccion prematura              | Menor complejidad y menor riesgo de inconsistencia | decided |
 | 2026-04-12 | Mantener `SESSION_UPDATE` como unico contrato activo del piloto   | Preservar invariantes vigentes de Fase 2                     | Riesgo funcional reducido                          | decided |
+| 2026-04-12 | Poblar `metadata` de cada error con angulo biomedanico causal     | Bridge minimo hacia `contributing_features` post-piloto sin `FeatureExtractor` | Trazabilidad de errores sin coste arquitectonico | decided |
