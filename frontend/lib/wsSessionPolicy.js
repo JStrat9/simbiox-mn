@@ -10,7 +10,8 @@ export function shouldApplySessionUpdate(lastSessionVersion, incomingVersion) {
 
 function humanizeExercise(exercise) {
     if (!exercise) return "";
-    return exercise.charAt(0).toUpperCase() + exercise.slice(1);
+    const words = exercise.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1));
+    return words.join(" ");
 }
 
 function normalizeErrorCode(rawCode) {
@@ -68,8 +69,6 @@ export function buildClientsFromSessionUpdate(snapshot) {
                     messageKey: error.messageKey,
                     code: error.code,
                 }),
-            ).map(
-                (message) => (exercise ? `${exercise}: ${message}` : message),
             );
 
             nextClients[athleteId] = {
