@@ -35,37 +35,43 @@ def draw_edges(frame: np.ndarray, keypoints: np.ndarray, color=(255,255,255), th
 def draw_angles(frame: np.ndarray, keypoints: np.ndarray, angles: dict, side: str, color=(0, 255, 255), font_scale=0.5, thickness=2):
     """
     Draws angle values near the corresponding key points.
+    Supports squat angles (knee, hip, ankle) and renegade_row angles (elbow, hip_body).
     """
 
-    h, w, _ =frame.shape
+    h, w, _ = frame.shape
 
     # Keypoint indices based on side
     if side == "left":
-        hip_idx = 11 # left_hip
-        knee_idx = 13 # left_knee
-        ankle_idx = 15 # left_ankle
+        shoulder_idx = 5   # left_shoulder
+        elbow_idx    = 7   # left_elbow
+        hip_idx      = 11  # left_hip
+        knee_idx     = 13  # left_knee
+        ankle_idx    = 15  # left_ankle
     else:
-        hip_idx = 12 # right_hip
-        knee_idx = 14 # right_knee
-        ankle_idx = 16 # right_ankle
+        shoulder_idx = 6   # right_shoulder
+        elbow_idx    = 8   # right_elbow
+        hip_idx      = 12  # right_hip
+        knee_idx     = 14  # right_knee
+        ankle_idx    = 16  # right_ankle
 
-    # Draw knee angle
-    if 'knee' in angles and knee_idx < len(keypoints):
-        y, x, c = keypoints[knee_idx]
-        if c > 0.3: # visibility threshold
-            pos = (int(x * w) + 10, int(y * h) - 10)
-            cv2.putText(frame, f"Knee: {angles['knee']:.1f}", pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+    def _put(idx: int, label: str, value: float):
+        if idx >= len(keypoints):
+            return
+        y, x, c = keypoints[idx]
+        if c > 0.3:
+            cv2.putText(frame, f"{label}: {value:.1f}", (int(x * w) + 10, int(y * h) - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
 
-    # Draw hip angle
-    if 'hip' in angles and hip_idx < len(keypoints):
-        y, x, c = keypoints[hip_idx]
-        if c > 0.3: # visibility threshold
-            pos = (int(x * w) + 10, int(y * h) - 10)
-            cv2.putText(frame, f"Hip: {angles['hip']:.1f}", pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+    # Squat angles
+    if 'knee' in angles:
+        _put(knee_idx, "Knee", angles['knee'])
+    if 'hip' in angles:
+        _put(hip_idx, "Hip", angles['hip'])
+    if 'ankle' in angles:
+        _put(ankle_idx, "Ankle", angles['ankle'])
 
-    # Draw ankle angle
-    if 'ankle' in angles and ankle_idx < len(keypoints):
-        y, x, c = keypoints[ankle_idx]
-        if c > 0.3: # visibility threshold
-            pos = (int(x * w) + 10, int(y * h) -10)
-            cv2.putText(frame, f"Ankle: {angles['ankle']:.1f}", pos, cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+    # Renegade row angles
+    if 'elbow' in angles:
+        _put(elbow_idx, "Elbow", angles['elbow'])
+    if 'hip_body' in angles:
+        _put(hip_idx, "Body", angles['hip_body'])

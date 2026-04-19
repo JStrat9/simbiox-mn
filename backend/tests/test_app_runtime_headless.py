@@ -112,6 +112,16 @@ class _SessionUpdatePublisherSpy:
         self.publish_calls += 1
 
 
+class _StopAfterNTicks:
+    def __init__(self, n: int):
+        self._n = n
+        self._count = 0
+
+    def should_stop(self) -> bool:
+        self._count += 1
+        return self._count > self._n
+
+
 class AppRuntimeHeadlessTests(unittest.TestCase):
     def test_headless_runtime_runs_without_gui_and_updates_state(self):
         state = SessionState()
@@ -207,6 +217,79 @@ class AppRuntimeHeadlessTests(unittest.TestCase):
 
         self.assertTrue(no_frame_camera.stopped)
         self.assertTrue(presenter.closed)
+
+    def test_dual_camera_processes_both_queues(self):
+        """Dual-camera mode: each camera feed is processed and updates its own athlete."""
+        state = SessionState()
+        manager = build_legacy_session_person_manager_adapter(
+            session_state=state,
+            max_persons=6,
+            distance_threshold=120.0,
+        )
+
+        side_queue = Queue(maxsize=1)
+        front_queue = Queue(maxsize=1)
+        side_camera = _FakeCamera(side_queue)
+        front_camera = _FakeCamera(front_queue)
+        presenter = _PresenterSpy()
+        publisher = _SessionUpdatePublisherSpy()
+        control = _StopAfterNTicks(3)
+
+        run_app_runtime(
+            session_state=state,
+            session_manager=manager,
+            frame_presenter=presenter,
+            runtime_control=control,
+            side_queue=side_queue,
+            side_camera=side_camera,
+            front_queue=front_queue,
+            front_camera=front_camera,
+            movenet=_FakeMoveNet(),
+            detector_manager=_FakeDetectorManager(),
+            session_update_publisher=publisher,
+        )
+
+        self.assertTrue(side_camera.stopped)
+        self.assertTrue(front_camera.stopped)
+        self.assertTrue(presenter.closed)
+        # Both static adapters should have updated their respective athletes
+        self.assertEqual(state.reps.get("athlete_1", 0), 1)
+        self.assertEqual(state.reps.get("athlete_2", 0), 1)
+        self.assertGreaterEqual(publisher.publish_calls, 1)
+
+    def test_single_camera_mode_unchanged_when_front_camera_none(self):
+        """Single-camera mode (front_camera=None) behaves identically to before."""
+        state = SessionState()
+        manager = build_legacy_session_person_manager_adapter(
+            session_state=state,
+            max_persons=6,
+            distance_threshold=120.0,
+        )
+
+        side_queue = Queue(maxsize=1)
+        side_camera = _FakeCamera(side_queue)
+        presenter = _PresenterSpy()
+        control = _StopAfterFirstPresentedFrame(presenter)
+        publisher = _SessionUpdatePublisherSpy()
+
+        run_app_runtime(
+            session_state=state,
+            session_manager=manager,
+            frame_presenter=presenter,
+            runtime_control=control,
+            side_queue=side_queue,
+            side_camera=side_camera,
+            front_camera=None,   # explicit single-camera mode
+            movenet=_FakeMoveNet(),
+            detector_manager=_FakeDetectorManager(),
+            session_update_publisher=publisher,
+        )
+
+        self.assertTrue(side_camera.stopped)
+        self.assertTrue(presenter.closed)
+        self.assertGreaterEqual(presenter.present_calls, 1)
+        self.assertEqual(state.reps.get("athlete_1", 0), 1)
+        self.assertEqual(publisher.publish_calls, 1)
 
     def test_canonical_loop_has_no_direct_waitkey_dependency(self):
         source = inspect.getsource(app_runtime.run_app_runtime)

@@ -2,6 +2,8 @@ import asyncio
 import time
 import threading
 
+from queue import Queue
+
 from communication.websocket_server import (
     emit_session_update,
     start_server,
@@ -9,7 +11,7 @@ from communication.websocket_server import (
     register_session_state,
 )
 from application.ports.session_person_manager_ports import RuntimeSessionManagerPort
-from config import MAX_PERSONS
+from config import MAX_PERSONS, CAMERA_SIDE_URL, CAMERA_FRONT_URL
 from domain.session.session_state import SessionState
 from interfaces.runtime.session_person_manager_adapter import (
     build_legacy_session_person_manager_adapter,
@@ -17,6 +19,7 @@ from interfaces.runtime.session_person_manager_adapter import (
 from runtime.app_runtime import run_app_runtime
 from runtime.perf_monitor import PsutilPerfReporter
 from runtime.visualization import OpenCVFramePresenter, OpenCVKeypressControl
+from video.camera_worker import CameraWorker
 
 session_state = SessionState()
 session_manager: RuntimeSessionManagerPort = build_legacy_session_person_manager_adapter(
@@ -49,13 +52,33 @@ class WebSocketSessionUpdatePublisher:
 
 def main():
     print("[INFO][BOOT] Starting runtime...", flush=True)
+
+    side_queue: Queue = Queue(maxsize=1)
+    side_camera = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
+
+    front_queue = None
+    front_camera = None
+    front_presenter = None
+    if CAMERA_FRONT_URL:
+        front_queue = Queue(maxsize=1)
+        front_camera = CameraWorker(CAMERA_FRONT_URL, front_queue, name="Front")
+        front_presenter = OpenCVFramePresenter(window_name="Front Camera")
+        print("[INFO][BOOT] Dual-camera mode: CAMERA_FRONT_URL configured", flush=True)
+    else:
+        print("[INFO][BOOT] Single-camera mode: CAMERA_FRONT_URL not set", flush=True)
+
     run_app_runtime(
         session_state=session_state,
         session_manager=session_manager,
         frame_presenter=OpenCVFramePresenter(window_name="Side Camera"),
+        front_frame_presenter=front_presenter,
         runtime_control=OpenCVKeypressControl(quit_key="q", wait_ms=1),
         perf_reporter=PsutilPerfReporter(label="MAIN"),
         session_update_publisher=WebSocketSessionUpdatePublisher(),
+        side_queue=side_queue,
+        side_camera=side_camera,
+        front_queue=front_queue,
+        front_camera=front_camera,
     )
     print("[INFO][BOOT] Runtime stopped cleanly", flush=True)
 

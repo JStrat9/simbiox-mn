@@ -78,6 +78,74 @@ def _wait_for_initial_frame(
     raise RuntimeError(f"Camera startup failed: {degraded_reason}")
 
 
+def _process_camera_frame(
+    *,
+    queue: Queue,
+    movenet: Any,
+    session_state: SessionState,
+    resolver: Any,
+    detector_manager: Any,
+    frame_presenter: FramePresenter | None,
+) -> bool:
+    """
+    Pull one frame from queue, run MoveNet, draw overlays, present, and
+    process only the most prominent person (people[0]).
+    Returns True if session state changed.
+    """
+    if queue.empty():
+        return False
+
+    frame_data = queue.get()
+    people = movenet.run(frame_data)
+
+    state_changed = False
+
+    if people:
+        # Pilot mode: process only the most prominent detection.
+        person_kp = people[0]
+
+        output = process_person(
+            person_kp,
+            session_state=session_state,
+            identity_resolver=resolver,
+            station_provider=resolver,
+            detector_provider=detector_manager,
+            sync_state_fn=sync_session_state_for_person,
+            on_squat_feedback=None,
+        )
+
+        if not output.skipped:
+            draw_edges(frame_data, person_kp)
+            draw_keypoints(frame_data, person_kp)
+            angles = output.result.get("angles") or {}
+            if angles:
+                draw_angles(frame_data, person_kp, angles, output.side)
+            draw_feedback(
+                frame_data,
+                reps=output.result.get("reps"),
+                error=output.result.get("feedback") or None,
+            )
+
+            print(
+                f"[EXERCISE] {output.session_person_id} "
+                f"station={output.station.station_id} "
+                f"exercise={output.station.exercise} "
+                f"reps={output.station.reps}"
+            )
+
+            resolver.release_missing_client_ids(
+                {output.client_id} if output.client_id else set()
+            )
+
+            state_changed = output.state_changed
+
+    # Present frame (raw if no detection, annotated if detection found).
+    if frame_presenter is not None:
+        frame_presenter.present(frame_data)
+
+    return state_changed
+
+
 def run_app_runtime(
     *,
     session_state: SessionState,
@@ -87,6 +155,10 @@ def run_app_runtime(
     perf_reporter: PerfReporter | None = None,
     side_queue: Queue | None = None,
     side_camera: CameraPort | None = None,
+    front_queue: Queue | None = None,
+    front_camera: CameraPort | None = None,
+    front_session_manager: Any | None = None,
+    front_frame_presenter: FramePresenter | None = None,
     movenet: Any | None = None,
     detector_manager: Any | None = None,
     session_update_publisher: SessionUpdatePublisher | None = None,
@@ -94,6 +166,8 @@ def run_app_runtime(
 ):
     if frame_presenter is None:
         frame_presenter = NullFramePresenter()
+    if front_frame_presenter is None:
+        front_frame_presenter = NullFramePresenter()
     if runtime_control is None:
         runtime_control = HeadlessRuntimeControl()
     if perf_reporter is None:
@@ -118,7 +192,23 @@ def run_app_runtime(
 
         side_camera = CameraWorker(CAMERA_SIDE_URL, side_queue, name="Side")
 
-    palette = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255)]
+    # Dual-camera mode: activate when front_camera is provided.
+    dual_camera = front_camera is not None
+    if dual_camera:
+        if front_queue is None:
+            front_queue = Queue(maxsize=1)
+        if front_session_manager is None:
+            from interfaces.runtime.static_camera_adapter import StaticCameraSessionAdapter
+            front_session_manager = StaticCameraSessionAdapter("athlete_2", session_state)
+
+    # In dual-camera mode use static adapters for both cameras to prevent
+    # cross-camera tracker ID collisions (both feeds share normalized coords).
+    # In single-camera mode the legacy session_manager (IoU tracker) is used.
+    if dual_camera:
+        from interfaces.runtime.static_camera_adapter import StaticCameraSessionAdapter
+        side_resolver: Any = StaticCameraSessionAdapter("athlete_1", session_state)
+    else:
+        side_resolver = session_manager
 
     print("[INFO][RUNTIME] Starting runtime loop...", flush=True)
 
@@ -130,79 +220,72 @@ def run_app_runtime(
             timeout_s=initial_frame_timeout_s,
         )
 
+        if dual_camera:
+            front_camera.start()
+            try:
+                _wait_for_initial_frame(
+                    side_queue=front_queue,
+                    side_camera=front_camera,
+                    timeout_s=initial_frame_timeout_s,
+                )
+            except RuntimeError as exc:
+                print(
+                    f"[WARN][RUNTIME] Front camera failed to start: {exc}. "
+                    "Falling back to single-camera mode.",
+                    flush=True,
+                )
+                front_camera.stop()
+                dual_camera = False
+                front_camera = None
+
         while True:
             if runtime_control.should_stop():
                 break
 
-            if side_queue.empty():
-                time.sleep(0.001)
-                continue
-
-            current_client_ids = set()
-
-            frame_s = side_queue.get()
-            people_s = movenet.run(frame_s)
-
             frame_state_changed = False
 
-            for idx, person_kp in enumerate(people_s):
-                def render_squat_feedback(*, person_kp, side, result):
-                    draw_feedback(
-                        frame_s,
-                        reps=result.get("reps"),
-                        error=result["errors"][0] if result.get("errors") else "",
-                    )
-                    draw_keypoints(frame_s, person_kp, color=palette[idx % len(palette)])
-                    draw_edges(frame_s, person_kp)
-                    draw_angles(frame_s, person_kp, result.get("angles", {}), side)
-
-                output = process_person(
-                    person_kp,
+            # --- Side camera ---
+            if not side_queue.empty():
+                changed = _process_camera_frame(
+                    queue=side_queue,
+                    movenet=movenet,
                     session_state=session_state,
-                    identity_resolver=session_manager,
-                    station_provider=session_manager,
-                    detector_provider=detector_manager,
-                    sync_state_fn=sync_session_state_for_person,
-                    on_squat_feedback=render_squat_feedback,
+                    resolver=side_resolver,
+                    detector_manager=detector_manager,
+                    frame_presenter=frame_presenter,
                 )
+                frame_state_changed = frame_state_changed or changed
 
-                if output.skipped:
-                    continue
-
-                current_client_ids.add(output.client_id)
-
-                print(
-                    f"[EXERCISE] {output.session_person_id} "
-                    f"station={output.station.station_id} "
-                    f"exercise={output.station.exercise} "
-                    f"reps={output.station.reps}"
+            # --- Front camera (only in dual-camera mode) ---
+            if dual_camera and not front_queue.empty():
+                changed = _process_camera_frame(
+                    queue=front_queue,
+                    movenet=movenet,
+                    session_state=session_state,
+                    resolver=front_session_manager,
+                    detector_manager=detector_manager,
+                    frame_presenter=front_frame_presenter,
                 )
-                if output.is_squat_station:
-                    print(
-                        f"[SESSION] client_id={output.client_id} "
-                        f"-> session_person_id={output.session_person_id}"
-                    )
-
-                frame_state_changed = frame_state_changed or output.state_changed
-
-                print(
-                    f"[SIDE] Persona {idx}: "
-                    f"lado={output.side}, resultado={output.result}"
-                )
+                frame_state_changed = frame_state_changed or changed
 
             if frame_state_changed:
                 session_update_publisher.publish()
 
-            print(f"[TRACK] active clients this frame: {current_client_ids}")
-            print("[DEBUG] people detected:", len(people_s))
-            session_manager.release_missing_client_ids(current_client_ids)
+            both_empty = side_queue.empty() and (
+                not dual_camera or front_queue.empty()
+            )
+            if both_empty:
+                time.sleep(0.001)
 
-            frame_presenter.present(frame_s)
             perf_reporter.tick()
+
     except Exception as exc:
         print(f"[ERROR][RUNTIME] Fatal runtime exception: {exc}", flush=True)
         raise
     finally:
         print("[INFO][RUNTIME] Shutting down runtime...", flush=True)
         side_camera.stop()
+        if dual_camera and front_camera is not None:
+            front_camera.stop()
         frame_presenter.close()
+        front_frame_presenter.close()
