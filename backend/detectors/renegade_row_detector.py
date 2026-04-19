@@ -36,14 +36,20 @@ def _make_error(code: str, **metadata_fields) -> dict:
 
 class RenegadeRowDetector:
     def __init__(self):
-        self.state = "up"
+        # Estados según posición física del brazo:
+        #   "down"     → brazo abajo, extendido en plancha (ángulo codo alto, ~180°)
+        #   "pulling"  → brazo subiendo, codo flexionándose
+        #   "up"       → brazo arriba, tirón completo (ángulo codo bajo, <90°)
+        #   "lowering" → brazo bajando de vuelta a plancha
+        self.state = "down"
         self.reps = 0
-        self.reached_depth = False
+        self.completed_pull = False
         self.first_rep_done = False
         self.current_rep_errors = {}
         self.renegade_row_errors_sent = set()
         self.last_valid_elbow_angle = 150
-        self.aborted_descend = False
+        self.aborted_pull = False
+        self.locked_side: str | None = None
         print("[DETECTOR] RenegadeRowDetector created", id(self))
 
     def analyze(self, person_kp: np.ndarray):
@@ -53,7 +59,12 @@ class RenegadeRowDetector:
         if person_kp is None or person_kp.shape != (17, 3):
             return {"valid": False}
 
-        side = choose_side(person_kp)
+        if self.state == "down":
+            new_side = choose_side(person_kp)
+            if new_side != self.locked_side:
+                self.locked_side = new_side
+                self.last_valid_elbow_angle = 150
+        side = self.locked_side or choose_side(person_kp)
         kp = extract_upper_body_keypoints(person_kp, side)
 
         shoulder = as_point_tuple(kp["shoulder"])
@@ -77,11 +88,13 @@ class RenegadeRowDetector:
 
         # -----------------------
         # Zones
+        # Ángulo codo ALTO (>140°) = brazo abajo (plancha)
+        # Ángulo codo BAJO (<90°)  = brazo arriba (tirón completo)
         # -----------------------
 
-        in_up_zone   = elbow_angle > RENEGADE_ROW_UP_ANGLE
+        in_down_zone = elbow_angle > RENEGADE_ROW_UP_ANGLE    # brazo abajo, extendido
         in_mid_zone  = RENEGADE_ROW_DOWN_ANGLE <= elbow_angle <= RENEGADE_ROW_UP_ANGLE
-        in_down_zone = elbow_angle < RENEGADE_ROW_DOWN_ANGLE
+        in_up_zone   = elbow_angle < RENEGADE_ROW_DOWN_ANGLE  # brazo arriba, tirón completo
 
         # -----------------------
         # Errors initialization
@@ -92,24 +105,24 @@ class RenegadeRowDetector:
         # -----------------------
         # State machine
         # -----------------------
-        if self.state == "up" and in_mid_zone:
-            self.state = "descending"
-            self.aborted_descend = True
-        elif self.state == "descending":
-            if in_down_zone:
-                self.state = "down"
-                self.reps += 1
-                self.reached_depth = True
-                self.aborted_descend = False
-            elif in_up_zone:
+        if self.state == "down" and in_mid_zone:
+            self.state = "pulling"
+            self.aborted_pull = True
+        elif self.state == "pulling":
+            if in_up_zone:
                 self.state = "up"
-                if self.aborted_descend:
+                self.reps += 1
+                self.completed_pull = True
+                self.aborted_pull = False
+            elif in_down_zone:
+                self.state = "down"
+                if self.aborted_pull:
                     current_errors_v2.append(_make_error("RANGE_INSUFFICIENT", elbow_angle=elbow_angle))
-                self.aborted_descend = False
-        elif self.state == "down" and in_mid_zone:
-            self.state = "ascending"
-        elif self.state == "ascending" and in_up_zone:
-            self.state = "up"
+                self.aborted_pull = False
+        elif self.state == "up" and in_mid_zone:
+            self.state = "lowering"
+        elif self.state == "lowering" and in_down_zone:
+            self.state = "down"
             rep_feedback = [
                 err for err, frames in self.current_rep_errors.items()
                 if frames >= ERROR_REPEAT_THRESHOLD
@@ -117,11 +130,11 @@ class RenegadeRowDetector:
             self.current_rep_errors.clear()
 
         # HIP_SAGGING check during active phases
-        if self.state in ("descending", "down", "ascending"):
+        if self.state in ("pulling", "up", "lowering"):
             if hip_body_angle < RENEGADE_ROW_HIP_SAG_THRESHOLD:
                 current_errors_v2.append(_make_error("HIP_SAGGING", hip_body_angle=hip_body_angle))
 
-        if self.state in ("descending", "down", "ascending"):
+        if self.state in ("pulling", "up", "lowering"):
             for err in current_errors_v2:
                 code = err["code"]
                 self.current_rep_errors[code] = (
@@ -141,9 +154,9 @@ class RenegadeRowDetector:
             _CODE_TO_DISPLAY.get(code, code) for code in feedback_to_send
         ) if feedback_to_send else ""
 
-        if self.state == "up" and self.reached_depth:
+        if self.state == "down" and self.completed_pull:
             self.first_rep_done = True
-            self.reached_depth = False
+            self.completed_pull = False
 
         return {
             "valid": True,

@@ -38,10 +38,10 @@ KNEE_MIN_ANGLE = int(os.getenv("KNEE_MIN_ANGLE", 60))
 # ---- Parámetros del renegade row     ----|
 # -----------------------------------------|
 
-# Zona "reposo": codo > RENEGADE_ROW_UP_ANGLE  →  estado "up" (brazo extendido en plancha)
+# Brazo abajo (plancha): codo > RENEGADE_ROW_UP_ANGLE  →  estado "down" (ángulo codo alto, brazo extendido)
 RENEGADE_ROW_UP_ANGLE = int(os.getenv("RENEGADE_ROW_UP_ANGLE", 140))
 
-# Zona "rowed": codo < RENEGADE_ROW_DOWN_ANGLE  →  estado "down" (brazo completamente rowado)
+# Brazo arriba (tirón completo): codo < RENEGADE_ROW_DOWN_ANGLE  →  estado "up" (ángulo codo bajo, mano cerca cadera)
 RENEGADE_ROW_DOWN_ANGLE = int(os.getenv("RENEGADE_ROW_DOWN_ANGLE", 90))
 
 # Error HIP_SAGGING si ángulo cuerpo (hombro-cadera-tobillo) < RENEGADE_ROW_HIP_SAG_THRESHOLD

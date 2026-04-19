@@ -144,26 +144,23 @@ class RenegadeRowDetectorTests(unittest.TestCase):
 
     def test_rep_counting_increments_on_full_cycle(self):
         d = RenegadeRowDetector()
-        # Ensure we start in "up"
-        self.assertEqual(d.state, "up")
+        self.assertEqual(d.state, "down")
         self.assertEqual(d.reps, 0)
 
-        # Simulate descent into down zone
-        kp_mid = _kp_with_elbow_angle(115)   # mid zone
-        kp_down = _kp_with_elbow_angle(75)   # down zone
-        kp_up = _kp_with_elbow_angle(160)    # up zone
+        # Posiciones físicas: "down" = brazo abajo (ángulo alto), "up" = brazo arriba (ángulo bajo)
+        kp_arm_down = _kp_with_elbow_angle(160)  # brazo extendido en plancha
+        kp_mid      = _kp_with_elbow_angle(115)  # zona intermedia
+        kp_arm_up   = _kp_with_elbow_angle(75)   # brazo arriba, tirón completo
 
-        # Drive to descending
+        # Ciclo completo: down → pulling → up → lowering → down
         for _ in range(3):
-            d.analyze(kp_mid)
-        # Drive to down
+            d.analyze(kp_mid)       # entra en pulling
         for _ in range(3):
-            d.analyze(kp_down)
-        # Drive back up
+            d.analyze(kp_arm_up)    # llega a up (rep contada)
         for _ in range(3):
-            d.analyze(kp_mid)
+            d.analyze(kp_mid)       # entra en lowering
         for _ in range(3):
-            r = d.analyze(kp_up)
+            r = d.analyze(kp_arm_down)  # vuelve a down
 
         self.assertEqual(r["reps"], 1)
 
