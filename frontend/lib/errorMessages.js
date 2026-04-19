@@ -3,6 +3,8 @@ const ERROR_MESSAGE_BY_KEY = {
     "error.squat.depth_excessive": "Baja demasiado",
     "error.squat.back_rounded": "Espalda encorvada",
     "error.squat.knee_forward": "Rodillas adelantadas",
+    "error.exercise.range_insufficient": "No completas el tirón",
+    "error.exercise.hip_sagging": "Cadera hundida",
     "error.generic.unknown": "Error desconocido",
 };
 
@@ -11,6 +13,8 @@ const ERROR_MESSAGE_BY_CODE = {
     DEPTH_EXCESSIVE: "Baja demasiado",
     BACK_ROUNDED: "Espalda encorvada",
     KNEE_FORWARD: "Rodillas adelantadas",
+    RANGE_INSUFFICIENT: "No completas el tirón",
+    HIP_SAGGING: "Cadera hundida",
     UNKNOWN_ERROR: "Error desconocido",
 };
 
