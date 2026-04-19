@@ -14,12 +14,14 @@ type WorkoutStationCardProps = {
     stationNumber: number;
     exerciseName: string;
     athletes: Athlete[];
+    onWeightChange?: (athleteId: string, kg: number) => void;
 };
 
 const WorkoutStationCard: React.FC<WorkoutStationCardProps> = ({
     stationNumber,
     exerciseName,
     athletes,
+    onWeightChange,
 }) => {
     return (
         <div className="w-full rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -62,17 +64,18 @@ const WorkoutStationCard: React.FC<WorkoutStationCardProps> = ({
                             {/* Peso */}
                             <div className="flex items-center gap-1">
                                 <span className="text-gray-500">kg</span>
-                                {athlete.isActive ? (
-                                    <input
-                                        type="number"
-                                        defaultValue={athlete.weight}
-                                        className="w-14 rounded-md border border-gray-300 px-1 py-0.5 text-right focus:border-blue-500 focus:outline-none"
-                                    />
-                                ) : (
-                                    <span className="font-medium text-gray-700">
-                                        {athlete.weight}
-                                    </span>
-                                )}
+                                <input
+                                    type="number"
+                                    defaultValue={athlete.weight}
+                                    key={`${athlete.id}-${athlete.weight}`}
+                                    onChange={(e) =>
+                                        onWeightChange?.(
+                                            athlete.id,
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                    className="w-14 rounded-md border border-gray-300 px-1 py-0.5 text-right focus:border-blue-500 focus:outline-none"
+                                />
                             </div>
 
                             {/* Reps */}

@@ -5,6 +5,7 @@ import WorkoutStationCard from "./WorkoutStationCard";
 import { getAthleteProfile } from "@/lib/athleteCatalog";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useClientsStore } from "@/store/clients";
+import { useWeightsStore } from "@/store/weights";
 
 const stationNumberFromId = (stationId: string) => {
     const match = stationId.match(/\d+/);
@@ -24,6 +25,9 @@ const WorkoutBoard: React.FC = () => {
     const clients = useClientsStore((s) => s.clients);
     const stations = useClientsStore((s) => s.stations);
     const sessionHydrated = useClientsStore((s) => s.sessionHydrated);
+    const rotateStations = useClientsStore((s) => s.rotateStations);
+    const weights = useWeightsStore((s) => s.weights);
+    const updateWeight = useWeightsStore((s) => s.updateWeight);
     const { send } = useWebSocket();
 
     const orderedStations = React.useMemo(
@@ -46,9 +50,8 @@ const WorkoutBoard: React.FC = () => {
     );
 
     const nextRotation = () => {
-        send({
-            type: "ROTATE_STATIONS",
-        });
+        rotateStations();
+        send({ type: "ROTATE_STATIONS" });
     };
 
     return (
@@ -86,16 +89,15 @@ const WorkoutBoard: React.FC = () => {
                     );
 
                     const athletesForStation = Object.entries(clients)
-                        .filter(([, client]) => client.station === stationKey)
                         .map(([id, client]) => {
                             const athleteProfile = getAthleteProfile(id);
                             return {
                                 id,
                                 name: athleteProfile.name,
                                 avatarUrl: athleteProfile.avatarUrl,
-                                weight: 0,
+                                weight: weights[id]?.[stationKey] ?? 0,
                                 maxReps: client.reps,
-                                isActive: true,
+                                isActive: client.station === stationKey,
                                 currentErrors: client.currentErrors,
                             };
                         });
@@ -110,6 +112,9 @@ const WorkoutBoard: React.FC = () => {
                             }
                             exerciseName={exerciseName}
                             athletes={athletesForStation}
+                            onWeightChange={(athleteId, kg) =>
+                                updateWeight(athleteId, stationKey, kg)
+                            }
                         />
                     );
                 })}
