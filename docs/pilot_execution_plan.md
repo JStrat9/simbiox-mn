@@ -232,16 +232,39 @@ Nota tecnica:
 
 Checklist:
 
-- [ ] Extraer solo helpers puros de keypoints/confianza si mejoran legibilidad.
-- [ ] Mantener en `squat_detector.py` rep counting, state machine y decision biomecanica.
-- [ ] Consolidar thresholds del ejercicio con naming claro en configuracion.
-- [ ] Verificar equivalencia funcional del detector tras el refactor.
+- [x] Extraer solo helpers puros de keypoints/confianza si mejoran legibilidad.
+- [x] Mantener en `squat_detector.py` rep counting, state machine y decision biomecanica.
+- [x] Consolidar thresholds del ejercicio con naming claro en configuracion.
+- [x] Verificar equivalencia funcional del detector tras el refactor.
 
 Definition of Done:
 
 - detector mas mantenible,
 - sin nueva capa arquitectonica,
 - sin regresion en reps, errores ni estado interno.
+
+### Registro de ejecucion Fase 3
+
+Fecha de corte: `2026-04-12`
+
+Cambios implementados:
+
+- `backend/detectors/squat_detector.py`
+    - eliminado codigo comentado residual: `# self.initial_errors = []` y `# back_angle = ...`,
+    - eliminado import sin uso: `KNEE_MIN_ANGLE`.
+- `backend/config.py`
+    - comentarios descriptivos por threshold (que condicion activa cada uno),
+    - `KNEE_MIN_ANGLE` movido al final del bloque con nota explicativa de compatibilidad.
+
+Nota de arquitectura:
+
+- `_choose_side()` en `process_person_uc.py` es una duplicacion necesaria: la capa `application/`
+  tiene prohibido importar de `detectors/` por `test_layer_boundaries.py`. No se toca.
+- Todos los helpers geometricos y de keypoints ya estaban extraidos. No hubo extraccion nueva.
+
+Resultado automatico validado:
+
+- Backend: `60` tests en verde sin regresion.
 
 ## Fase 4. Un ejercicio nuevo
 

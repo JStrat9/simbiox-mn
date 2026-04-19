@@ -10,7 +10,6 @@ from detectors.keypoints_movenet import (
     extract_side_keypoints,
 )
 from config import (
-    KNEE_MIN_ANGLE,
     KNEE_MAX_ANGLE,
     PERFECT_DEPTH_MIN,
     PERFECT_DEPTH_MAX,
@@ -47,7 +46,6 @@ class SquatDetector:
         self.reps = 0
         self.reached_depth = False
         self.first_squat_done = False
-        # self.initial_errors = []
         self.current_rep_errors = {}
         self.squat_errors_sent = set()
         self.last_valid_knee_angle = 90
@@ -81,7 +79,6 @@ class SquatDetector:
 
         knee_angle = angle_from_arrays(hip, knee, ankle)
         hip_angle = angle_from_arrays(shoulder, hip, knee)
-        # back_angle = angle_from_arrays(shoulder, hip, knee)
         ankle_angle = angle_with_vertical(knee, ankle)
 
         # Knee angle sanity check
