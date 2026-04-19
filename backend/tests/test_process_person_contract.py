@@ -59,7 +59,7 @@ class _Detector:
 
 
 class _DetectorProvider:
-    def get(self, session_person_id: str):
+    def get(self, session_person_id: str, exercise: str = "squat"):
         return _Detector()
 
 
@@ -67,7 +67,7 @@ class _FailIfCalledProvider:
     def get_station(self, session_person_id: str) -> Station:
         raise AssertionError("station provider should not be called")
 
-    def get(self, session_person_id: str):
+    def get(self, session_person_id: str, exercise: str = "squat"):
         raise AssertionError("detector provider should not be called")
 
 

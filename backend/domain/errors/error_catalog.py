@@ -27,6 +27,14 @@ KNOWN_ERRORS: Final[dict[str, ErrorSpec]] = {
         "severity": "warning",
         "message_key": "error.squat.knee_forward",
     },
+    "RANGE_INSUFFICIENT": {
+        "severity": "warning",
+        "message_key": "error.exercise.range_insufficient",
+    },
+    "HIP_SAGGING": {
+        "severity": "warning",
+        "message_key": "error.exercise.hip_sagging",
+    },
     "UNKNOWN_ERROR": {
         "severity": "warning",
         "message_key": "error.generic.unknown",

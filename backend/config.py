@@ -34,6 +34,19 @@ ERROR_REPEAT_THRESHOLD = int(os.getenv("ERROR_REPEAT_THRESHOLD", 2))
 # KNEE_MIN_ANGLE: reservado para compatibilidad de .env; no activo en lógica del detector.
 KNEE_MIN_ANGLE = int(os.getenv("KNEE_MIN_ANGLE", 60))
 
+# -----------------------------------------|
+# ---- Parámetros del renegade row     ----|
+# -----------------------------------------|
+
+# Zona "reposo": codo > RENEGADE_ROW_UP_ANGLE  →  estado "up" (brazo extendido en plancha)
+RENEGADE_ROW_UP_ANGLE = int(os.getenv("RENEGADE_ROW_UP_ANGLE", 140))
+
+# Zona "rowed": codo < RENEGADE_ROW_DOWN_ANGLE  →  estado "down" (brazo completamente rowado)
+RENEGADE_ROW_DOWN_ANGLE = int(os.getenv("RENEGADE_ROW_DOWN_ANGLE", 90))
+
+# Error HIP_SAGGING si ángulo cuerpo (hombro-cadera-tobillo) < RENEGADE_ROW_HIP_SAG_THRESHOLD
+RENEGADE_ROW_HIP_SAG_THRESHOLD = int(os.getenv("RENEGADE_ROW_HIP_SAG_THRESHOLD", 150))
+
 # ---------------------------------------|
 # ---- Parámetros de detección ----|
 # ---------------------------------------|

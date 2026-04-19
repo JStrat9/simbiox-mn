@@ -79,7 +79,7 @@ class Detector(Protocol):
 class DetectorProvider(Protocol):
     """Returns detector instances per logical session person."""
 
-    def get(self, session_person_id: str) -> Detector:
+    def get(self, session_person_id: str, exercise: str) -> Detector:
         ...
 
 

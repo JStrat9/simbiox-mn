@@ -109,9 +109,9 @@ def run_app_runtime(
         print("[INFO] Cargando MoveNet...")
         movenet = MoveNet(str(MOVENET_TFLITE_MODEL))
     if detector_manager is None:
-        from detectors.squat_detector_manager import SquatDetectorManager
+        from detectors.exercise_detector_router import ExerciseDetectorRouter
 
-        detector_manager = SquatDetectorManager(max_clients=6)
+        detector_manager = ExerciseDetectorRouter(max_clients=6)
     if side_camera is None:
         from config import CAMERA_SIDE_URL
         from video.camera_worker import CameraWorker

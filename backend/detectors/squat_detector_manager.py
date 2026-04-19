@@ -7,7 +7,7 @@ class SquatDetectorManager:
         self.detectors: dict[str, SquatDetector] = {}
         self.max_clients = max_clients
 
-    def get(self, client_id: str) -> SquatDetector:
+    def get(self, client_id: str, exercise: str = "squat") -> SquatDetector:
         """
         Returns a detector for the given client_id.
         If the client_id is not in the dictionary, a new detector is created.

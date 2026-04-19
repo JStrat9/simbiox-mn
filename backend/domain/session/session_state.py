@@ -46,7 +46,7 @@ class SessionState:
         # Station catalog is exposed to frontend via SESSION_UPDATE.stations.
         self.station_map: dict[str, str] = {
             "station1": "squat",
-            "station2": "pushup",
+            "station2": "renegade_row",
             "station3": "pullup",
             "station4": "lunges",
             "station5": "plank",

@@ -270,16 +270,61 @@ Resultado automatico validado:
 
 Checklist:
 
-- [ ] Implementar 1 detector nuevo siguiendo el flujo actual.
-- [ ] Hacer que entregue salida estructurada compatible con el sistema vigente.
-- [ ] Integrarlo en `process_person_uc.py` sin cambiar su rol de orquestacion.
-- [ ] Validar multi-persona, rotacion y snapshot con el nuevo ejercicio.
+- [x] Implementar 1 detector nuevo siguiendo el flujo actual.
+- [x] Hacer que entregue salida estructurada compatible con el sistema vigente.
+- [x] Integrarlo en `process_person_uc.py` sin cambiar su rol de orquestacion.
+- [x] Validar multi-persona, rotacion y snapshot con el nuevo ejercicio.
 
 Definition of Done:
 
 - `squat` y 1 ejercicio nuevo funcionan bajo el mismo pipeline operativo,
 - sin refactor estructural grande,
 - sin ruptura del contrato de sesion.
+
+### Registro de ejecucion Fase 4
+
+Fecha de corte: `2026-04-19`
+
+Cambios implementados:
+
+- `backend/domain/errors/error_catalog.py`
+    - nuevos codigos: `RANGE_INSUFFICIENT`, `HIP_SAGGING`.
+- `backend/detectors/keypoints_movenet.py`
+    - nueva funcion `extract_upper_body_keypoints()` para extraer `{shoulder, elbow, wrist, hip, ankle}`.
+- `backend/config.py`
+    - nuevos thresholds: `RENEGADE_ROW_UP_ANGLE` (140), `RENEGADE_ROW_DOWN_ANGLE` (90), `RENEGADE_ROW_HIP_SAG_THRESHOLD` (150).
+- `backend/domain/session/session_state.py`
+    - `station2` cambiado de `"pushup"` a `"renegade_row"`.
+- `backend/detectors/renegade_row_detector.py` (nuevo)
+    - state machine identica al squat: `up → descending → down → ascending → up`,
+    - angulo de codo para rep counting, angulo cuerpo para `HIP_SAGGING`,
+    - salida estructurada `errors_v2` con angulo causal en `metadata`.
+- `backend/detectors/renegade_row_detector_manager.py` (nuevo)
+    - manager per-persona identico al patron de `SquatDetectorManager`.
+- `backend/detectors/exercise_detector_router.py` (nuevo)
+    - router que despacha por `exercise` a `SquatDetectorManager` o `RenegadeRowDetectorManager`.
+- `backend/application/ports/process_person_ports.py`
+    - `DetectorProvider.get()` acepta `exercise: str` como segundo argumento.
+- `backend/detectors/squat_detector_manager.py`
+    - `get()` acepta `exercise: str = "squat"` para satisfacer el protocolo actualizado.
+- `backend/application/use_cases/process_person_uc.py`
+    - constante de modulo `_TRACKED_EXERCISES = frozenset({"squat", "renegade_row"})`,
+    - `is_squat_station` derivado de `station.exercise in _TRACKED_EXERCISES`,
+    - `detector_provider.get(session_person_id, station.exercise)` pasa el ejercicio al provider.
+- `backend/runtime/app_runtime.py`
+    - inyecta `ExerciseDetectorRouter` en lugar de `SquatDetectorManager`.
+- tests actualizados:
+    - `backend/tests/test_app_runtime_headless.py`: stub `_FakeDetectorManager.get()` acepta `exercise`.
+    - `backend/tests/test_process_person_contract.py`: stubs `_DetectorProvider` y `_FailIfCalledProvider` aceptan `exercise`.
+- tests nuevos:
+    - `backend/tests/test_renegade_row_detector.py` (7 tests).
+
+Resultado automatico validado:
+
+- Backend: `67` tests en verde con `python -m unittest discover -s backend/tests -p "test_*.py"`.
+- Frontend: `9` tests en verde con `node --test frontend/tests/ws_phase2.test.js`.
+- Contrato de sesion `SESSION_UPDATE` sin cambios de forma ni semantica.
+- `squat` y `renegade_row` operativos bajo el mismo pipeline.
 
 ## Fase 5. Ensayo del piloto
 

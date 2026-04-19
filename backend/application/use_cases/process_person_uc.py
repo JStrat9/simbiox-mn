@@ -16,6 +16,7 @@ from domain.session.session_state import SessionState
 
 _LEFT_SIDE_IDX = (5, 7, 9, 11, 13, 15)
 _RIGHT_SIDE_IDX = (6, 8, 10, 12, 14, 16)
+_TRACKED_EXERCISES = frozenset({"squat", "renegade_row"})
 
 
 def _choose_side(person_kp: np.ndarray) -> str:
@@ -79,9 +80,9 @@ def process_person(
         "angles": {},
     }
 
-    is_squat_station = station.exercise == "squat"
+    is_squat_station = station.exercise in _TRACKED_EXERCISES
     if is_squat_station:
-        detector = detector_provider.get(resolution.session_person_id)
+        detector = detector_provider.get(resolution.session_person_id, station.exercise)
         result = dict(detector.analyze(person_kp))
 
         if on_squat_feedback is not None:

@@ -78,3 +78,31 @@ def extract_side_keypoints(person_kp: np.ndarray, side: str):
         "knee": np.array(knee),
         "ankle": np.array(ankle),
     }
+
+
+def extract_upper_body_keypoints(person_kp: np.ndarray, side: str) -> dict:
+    """
+    Devuelve {shoulder, elbow, wrist, hip, ankle} del lado elegido.
+    Usado por detectores que necesitan el tren superior (p.ej. renegade row).
+    person_kp: array shape (17, 3) con [y, x, confidence]
+    """
+    if side == "left":
+        shoulder = person_kp[KP["left_shoulder"]]
+        elbow    = person_kp[KP["left_elbow"]]
+        wrist    = person_kp[KP["left_wrist"]]
+        hip      = person_kp[KP["left_hip"]]
+        ankle    = person_kp[KP["left_ankle"]]
+    else:
+        shoulder = person_kp[KP["right_shoulder"]]
+        elbow    = person_kp[KP["right_elbow"]]
+        wrist    = person_kp[KP["right_wrist"]]
+        hip      = person_kp[KP["right_hip"]]
+        ankle    = person_kp[KP["right_ankle"]]
+
+    return {
+        "shoulder": np.array(shoulder),
+        "elbow":    np.array(elbow),
+        "wrist":    np.array(wrist),
+        "hip":      np.array(hip),
+        "ankle":    np.array(ankle),
+    }

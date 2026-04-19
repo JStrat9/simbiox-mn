@@ -39,7 +39,7 @@ class _FakeDetector:
 
 
 class _FakeDetectorManager:
-    def get(self, session_person_id: str):
+    def get(self, session_person_id: str, exercise: str = "squat"):
         return _FakeDetector()
 
 
