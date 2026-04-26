@@ -8,6 +8,7 @@ from utils.geometry import angle_with_vertical
 from detectors.keypoints_movenet import (
     choose_side,
     extract_side_keypoints,
+    required_keypoints_confident,
 )
 from config import (
     KNEE_MAX_ANGLE,
@@ -16,6 +17,7 @@ from config import (
     LEAN_THRESHOLD,
     KNEE_FORWARD_THRESHOLD,
     ERROR_REPEAT_THRESHOLD,
+    KEYPOINT_CONFIDENCE_THRESHOLD,
 )
 from domain.errors.error_catalog import (
     default_message_key_for_code,
@@ -67,6 +69,18 @@ class SquatDetector:
         side = choose_side(person_kp)
         # Extract keypoints for that side
         kp = extract_side_keypoints(person_kp, side)
+
+        if not required_keypoints_confident(kp, ["shoulder", "hip", "knee", "ankle"], KEYPOINT_CONFIDENCE_THRESHOLD):
+            return {
+                "valid": True,
+                "side": side,
+                "state": self.state,
+                "reps": self.reps,
+                "angles": {},
+                "errors": [],
+                "errors_v2": [],
+                "feedback": "",
+            }
 
         shoulder = as_point_tuple(kp["shoulder"])
         hip      = as_point_tuple(kp["hip"])

@@ -106,3 +106,8 @@ def extract_upper_body_keypoints(person_kp: np.ndarray, side: str) -> dict:
         "hip":      np.array(hip),
         "ankle":    np.array(ankle),
     }
+
+
+def required_keypoints_confident(kp_dict: dict, required_keys: list, threshold: float) -> bool:
+    """True if all required keypoints have confidence >= threshold. kp_dict values are [y, x, conf]."""
+    return all(float(kp_dict[key][2]) >= threshold for key in required_keys)

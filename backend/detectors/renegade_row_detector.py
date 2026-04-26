@@ -6,12 +6,14 @@ from utils.pose_transform import as_point_tuple
 from detectors.keypoints_movenet import (
     choose_side,
     extract_upper_body_keypoints,
+    required_keypoints_confident,
 )
 from config import (
     RENEGADE_ROW_UP_ANGLE,
     RENEGADE_ROW_DOWN_ANGLE,
     RENEGADE_ROW_HIP_SAG_THRESHOLD,
     ERROR_REPEAT_THRESHOLD,
+    KEYPOINT_CONFIDENCE_THRESHOLD,
 )
 from domain.errors.error_catalog import (
     default_message_key_for_code,
@@ -66,6 +68,18 @@ class RenegadeRowDetector:
                 self.last_valid_elbow_angle = 150
         side = self.locked_side or choose_side(person_kp)
         kp = extract_upper_body_keypoints(person_kp, side)
+
+        if not required_keypoints_confident(kp, ["shoulder", "elbow", "wrist", "hip"], KEYPOINT_CONFIDENCE_THRESHOLD):
+            return {
+                "valid": True,
+                "side": side,
+                "state": self.state,
+                "reps": self.reps,
+                "angles": {},
+                "errors": [],
+                "errors_v2": [],
+                "feedback": "",
+            }
 
         shoulder = as_point_tuple(kp["shoulder"])
         elbow    = as_point_tuple(kp["elbow"])
