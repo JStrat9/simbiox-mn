@@ -68,7 +68,7 @@ test("buildClientsFromSessionUpdate builds a full replace-only view from snapsho
             reps: 7,
             exercise: "Squat",
             currentErrorCodes: ["DEPTH_INSUFFICIENT"],
-            currentErrors: ["Squat: No bajas lo suficiente"],
+            currentErrors: ["Baja poco"],
             station: "station1",
         },
         athlete_2: {
@@ -112,7 +112,7 @@ test("buildClientsFromSessionUpdate prioritizes errors_v2 over legacy errors", (
         "DEPTH_INSUFFICIENT",
     ]);
     assert.deepEqual(clients.athlete_1.currentErrors, [
-        "Squat: No bajas lo suficiente",
+        "Baja poco",
     ]);
 });
 
@@ -139,7 +139,7 @@ test("buildClientsFromSessionUpdate falls back to legacy errors when errors_v2 i
         "DEPTH_INSUFFICIENT",
     ]);
     assert.deepEqual(clients.athlete_1.currentErrors, [
-        "Squat: No bajas lo suficiente",
+        "Baja poco",
     ]);
 });
 

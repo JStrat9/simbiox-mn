@@ -52,11 +52,24 @@ class SquatDetector:
         self.current_rep_errors = {}
         self.current_rep_error_dicts: dict[str, dict] = {}
         self.error_rep_count: dict[str, int] = {}
+        self.confirmed_error_dicts: dict[str, dict] = {}
         self.squat_errors_sent = set()
         self.last_valid_knee_angle = 90
         self.aborted_descend = False
         print("[DETECTOR] SquatDetector created", id(self))
 
+    def clear_reviewed_errors(self):
+        confirmed_codes = list(self.confirmed_error_dicts.keys())
+        if not confirmed_codes:
+            return
+
+        for code in confirmed_codes:
+            self.error_rep_count.pop(code, None)
+            self.current_rep_errors.pop(code, None)
+            self.current_rep_error_dicts.pop(code, None)
+            self.squat_errors_sent.discard(code)
+
+        self.confirmed_error_dicts.clear()
 
     def analyze(self, person_kp: np.ndarray):
         """
@@ -74,14 +87,18 @@ class SquatDetector:
         kp = extract_side_keypoints(person_kp, side)
 
         if not required_keypoints_confident(kp, ["shoulder", "hip", "knee", "ankle"], KEYPOINT_CONFIDENCE_THRESHOLD):
+            confirmed_errors_v2 = [
+                self.confirmed_error_dicts[code]
+                for code in sorted(self.confirmed_error_dicts.keys())
+            ]
             return {
                 "valid": True,
                 "side": side,
                 "state": self.state,
                 "reps": self.reps,
                 "angles": {},
-                "errors": [],
-                "errors_v2": [],
+                "errors": [e["code"] for e in confirmed_errors_v2],
+                "errors_v2": confirmed_errors_v2,
                 "feedback": "",
             }
 
@@ -117,7 +134,6 @@ class SquatDetector:
         # Errors initialization
         # -----------------------
         current_errors_v2: list[dict] = []
-        newly_confirmed_errors: list[dict] = []
 
         rep_feedback: list[str] = []
 
@@ -143,7 +159,7 @@ class SquatDetector:
                         self.error_rep_count.get("DEPTH_INSUFFICIENT", 0) + 1
                     )
                     if self.error_rep_count["DEPTH_INSUFFICIENT"] == ERROR_REP_COUNT_THRESHOLD:
-                        newly_confirmed_errors.append(err)
+                        self.confirmed_error_dicts["DEPTH_INSUFFICIENT"] = err
                 self.aborted_descend = False
         elif self.state == "down" and in_mid_zone:
             self.state = "ascending"
@@ -158,7 +174,7 @@ class SquatDetector:
                 if self.error_rep_count[code] == ERROR_REP_COUNT_THRESHOLD:
                     err_dict = self.current_rep_error_dicts.get(code)
                     if err_dict:
-                        newly_confirmed_errors.append(err_dict)
+                        self.confirmed_error_dicts[code] = err_dict
             self.current_rep_errors.clear()
             self.current_rep_error_dicts.clear()
         
@@ -199,6 +215,11 @@ class SquatDetector:
             self.first_squat_done = True
             self.reached_depth = False
 
+        confirmed_errors_v2 = [
+            self.confirmed_error_dicts[code]
+            for code in sorted(self.confirmed_error_dicts.keys())
+        ]
+
         return {
             "valid": True,
             "side": side,
@@ -209,8 +230,8 @@ class SquatDetector:
                 "hip": hip_angle,
                 "ankle": ankle_angle,
             },
-            "errors": [e["code"] for e in newly_confirmed_errors],
-            "errors_v2": newly_confirmed_errors,
+            "errors": [e["code"] for e in confirmed_errors_v2],
+            "errors_v2": confirmed_errors_v2,
             "feedback": feedback_to_send,
         }
 

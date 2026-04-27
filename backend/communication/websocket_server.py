@@ -10,7 +10,13 @@ from typing import Dict, Set
 from application.projections.session_update_projection import (
     build_session_update_projection,
 )
+from application.ports.runtime_reviewed_errors_sync import (
+    RuntimeReviewedErrorsSyncPort,
+)
 from application.ports.runtime_station_sync import RuntimeStationSyncPort
+from application.use_cases.clear_reviewed_errors_uc import (
+    clear_reviewed_errors_use_case,
+)
 from application.use_cases.rotate_stations_uc import rotate_stations_use_case
 from domain.session.session_state import SessionState
 
@@ -19,12 +25,18 @@ connected_clients: Set[websockets.WebSocketServerProtocol] = set()
 server_loop: asyncio.AbstractEventLoop | None = None
 
 _rotate_station_handler = None
+_clear_reviewed_errors_handler = None
 session_state = SessionState()
 
 
 def register_rotate_station_handler(handler):
     global _rotate_station_handler
     _rotate_station_handler = handler
+
+
+def register_clear_reviewed_errors_handler(handler):
+    global _clear_reviewed_errors_handler
+    _clear_reviewed_errors_handler = handler
 
 
 def register_session_state(state: SessionState):
@@ -59,6 +71,15 @@ async def handler(websocket, path=None):
                 event = rotate_stations_use_case(
                     session_state=session_state,
                     runtime_station_sync=runtime_station_sync,
+                )
+                await broadcast(event)
+            elif msg.get("type") == "CLEAR_REVIEWED_ERRORS":
+                runtime_reviewed_errors_sync = (
+                    _build_runtime_reviewed_errors_sync_adapter()
+                )
+                event = clear_reviewed_errors_use_case(
+                    session_state=session_state,
+                    runtime_reviewed_errors_sync=runtime_reviewed_errors_sync,
                 )
                 await broadcast(event)
 
@@ -113,6 +134,23 @@ def _build_runtime_station_sync_adapter() -> RuntimeStationSyncPort | None:
     if _rotate_station_handler is None:
         return None
     return _FunctionRuntimeStationSyncAdapter(_rotate_station_handler)
+
+
+class _FunctionRuntimeReviewedErrorsSyncAdapter(RuntimeReviewedErrorsSyncPort):
+    def __init__(self, handler):
+        self._handler = handler
+
+    def clear(self, session_person_id: str) -> None:
+        self._handler(session_person_id)
+
+
+def _build_runtime_reviewed_errors_sync_adapter(
+) -> RuntimeReviewedErrorsSyncPort | None:
+    if _clear_reviewed_errors_handler is None:
+        return None
+    return _FunctionRuntimeReviewedErrorsSyncAdapter(
+        _clear_reviewed_errors_handler
+    )
 
 
 # -----------------------------

@@ -32,3 +32,15 @@ export type SessionUpdateMessage = {
 };
 
 export type WSMessage = SessionUpdateMessage;
+
+export type RotateStationsCommand = {
+    type: "ROTATE_STATIONS";
+};
+
+export type ClearReviewedErrorsCommand = {
+    type: "CLEAR_REVIEWED_ERRORS";
+};
+
+export type WSOutgoingMessage =
+    | RotateStationsCommand
+    | ClearReviewedErrorsCommand;

@@ -22,3 +22,9 @@ class RenegadeRowDetectorManager:
 
     def clear_all(self):
         self.detectors.clear()
+
+    def clear_reviewed_errors(self, client_id: str):
+        detector = self.detectors.get(client_id)
+        if detector is None:
+            return
+        detector.clear_reviewed_errors()

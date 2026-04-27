@@ -1,16 +1,19 @@
 "use client";
 
+import { useWebSocket } from "@/lib/useWebSocket";
 import { useClientsStore } from "@/store/clients";
 // components/BackToTrainingButton.tsx
 
 import  { useUIStore } from "@/store/ui";
 
 export function BackToTrainingButton() {
+    const { send } = useWebSocket();
     const setMode = useUIStore((s) => s.setMode);
     const clearAllErrors = useClientsStore((s) => s.clearAllErrors);
     return (
         <button
             onClick={() => {
+                send({ type: "CLEAR_REVIEWED_ERRORS" });
                 setMode("TRAINING");
                 clearAllErrors();
             }} 

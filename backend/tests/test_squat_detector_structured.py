@@ -160,6 +160,19 @@ class SquatDetectorStructuredOutputTests(unittest.TestCase):
             )
             self.assertIsInstance(entry["metadata"][expected_key], float)
 
+    def test_confirmed_errors_survive_low_confidence_frame(self):
+        d = SquatDetector()
+        d.confirmed_error_dicts["BACK_ROUNDED"] = {
+            "code": "BACK_ROUNDED",
+            "message_key": "error.squat.back_rounded",
+            "severity": "warning",
+            "metadata": {"hip_angle": 45.5},
+        }
+        low_conf_kp = np.zeros((17, 3))
+        r = d.analyze(low_conf_kp)
+        self.assertEqual([e["code"] for e in r["errors_v2"]], ["BACK_ROUNDED"])
+        self.assertEqual(r["errors"], ["BACK_ROUNDED"])
+
     def test_detector_errors_never_contain_spanish_text(self):
         spanish_texts = {
             "no bajas lo suficiente",
@@ -244,7 +257,7 @@ class SquatDetectorStructuredOutputTests(unittest.TestCase):
 
 
 class SquatDetectorCrossRepThresholdTests(unittest.TestCase):
-    """errors_v2 sólo debe emitirse cuando el mismo error aparece en >= 2 reps."""
+    """errors_v2 se confirma en >=2 reps y luego se mantiene acumulado."""
 
     def _run_squat_rep_with_back_rounded(self, detector):
         """Simula un rep completo con BACK_ROUNDED (hip_angle=40 < LEAN_THRESHOLD=60).
@@ -285,21 +298,18 @@ class SquatDetectorCrossRepThresholdTests(unittest.TestCase):
         # Rep 2 — debe confirmar
         outputs = self._run_squat_rep_with_back_rounded(d)
         confirmed = [r for r in outputs if r.get("errors_v2")]
-        self.assertEqual(len(confirmed), 1, "errors_v2 debe emitirse exactamente una vez al confirmar")
+        self.assertGreaterEqual(len(confirmed), 1)
         codes = [e["code"] for e in confirmed[0]["errors_v2"]]
         self.assertIn("BACK_ROUNDED", codes)
 
-    def test_error_does_not_fire_again_on_third_rep(self):
+    def test_error_remains_present_on_third_rep(self):
         d = SquatDetector()
         self._run_squat_rep_with_back_rounded(d)  # rep 1
         self._run_squat_rep_with_back_rounded(d)  # rep 2 — confirma
         outputs = self._run_squat_rep_with_back_rounded(d)  # rep 3
         for r in outputs:
-            self.assertEqual(
-                r.get("errors_v2", []),
-                [],
-                "errors_v2 no debe re-emitirse en reps posteriores a la confirmación",
-            )
+            codes = [e["code"] for e in r.get("errors_v2", [])]
+            self.assertIn("BACK_ROUNDED", codes)
 
 
 if __name__ == "__main__":
