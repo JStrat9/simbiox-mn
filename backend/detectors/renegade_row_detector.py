@@ -12,6 +12,7 @@ from config import (
     RENEGADE_ROW_UP_ANGLE,
     RENEGADE_ROW_DOWN_ANGLE,
     RENEGADE_ROW_HIP_SAG_THRESHOLD,
+    RENEGADE_ROW_HIP_HIGH_THRESHOLD,
     ERROR_REPEAT_THRESHOLD,
     KEYPOINT_CONFIDENCE_THRESHOLD,
 )
@@ -24,6 +25,7 @@ from domain.errors.error_catalog import (
 _CODE_TO_DISPLAY: dict[str, str] = {
     "RANGE_INSUFFICIENT": "No completas el tirón",
     "HIP_SAGGING":        "Cadera hundida",
+    "HIP_HIGH":           "Cadera alta",
 }
 
 
@@ -143,10 +145,12 @@ class RenegadeRowDetector:
             ]
             self.current_rep_errors.clear()
 
-        # HIP_SAGGING check during active phases
+        # Hip position checks during active phases
         if self.state in ("pulling", "up", "lowering"):
-            if hip_body_angle < RENEGADE_ROW_HIP_SAG_THRESHOLD:
+            if hip_body_angle > RENEGADE_ROW_HIP_SAG_THRESHOLD:
                 current_errors_v2.append(_make_error("HIP_SAGGING", hip_body_angle=hip_body_angle))
+            elif hip_body_angle < RENEGADE_ROW_HIP_HIGH_THRESHOLD:
+                current_errors_v2.append(_make_error("HIP_HIGH", hip_body_angle=hip_body_angle))
 
         if self.state in ("pulling", "up", "lowering"):
             for err in current_errors_v2:

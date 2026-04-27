@@ -34,7 +34,7 @@ def _kp_with_elbow_angle(elbow_angle_deg: float) -> np.ndarray:
     Geometry: shoulder=(0.2, 0.5), elbow=(0.5, 0.5).
     Wrist is placed by rotating the vector elbow→shoulder by elbow_angle_deg,
     which produces that exact angle at the elbow via angle_from_arrays.
-    Hip (0.7, 0.5) and ankle (0.9, 0.5) are collinear → hip_body_angle=180° (no HIP_SAGGING).
+    Hip (0.7, 0.585) and ankle (0.9, 0.5) → hip_body_angle≈147° (zona neutra, no dispara HIP_SAGGING ni HIP_HIGH).
     """
     import math
 
@@ -64,9 +64,9 @@ def _kp_with_elbow_angle(elbow_angle_deg: float) -> np.ndarray:
     kp[6]  = [shoulder_y, shoulder_x, 0.9]  # right_shoulder
     kp[8]  = [elbow_y,    elbow_x,    0.9]  # right_elbow
     kp[10] = [wrist_y,    wrist_x,    0.9]  # right_wrist
-    kp[12] = [0.7, 0.5, 0.9]               # right_hip
-    kp[14] = [0.8, 0.5, 0.9]               # right_knee (boosts right score)
-    kp[16] = [0.9, 0.5, 0.9]               # right_ankle
+    kp[12] = [0.7, 0.585, 0.9]             # right_hip — ángulo neutro ~147° (entre HIP_HIGH<145 y HIP_SAGGING>150)
+    kp[14] = [0.8, 0.5,   0.9]             # right_knee (boosts right score)
+    kp[16] = [0.9, 0.5,   0.9]             # right_ankle
 
     return kp
 
@@ -117,6 +117,7 @@ class RenegadeRowDetectorTests(unittest.TestCase):
         causal_angle_by_code = {
             "RANGE_INSUFFICIENT": "elbow_angle",
             "HIP_SAGGING": "hip_body_angle",
+            "HIP_HIGH": "hip_body_angle",
         }
         mock_errors_v2 = [
             {
@@ -129,7 +130,13 @@ class RenegadeRowDetectorTests(unittest.TestCase):
                 "code": "HIP_SAGGING",
                 "message_key": "error.exercise.hip_sagging",
                 "severity": "warning",
-                "metadata": {"hip_body_angle": 130.2},
+                "metadata": {"hip_body_angle": 160.2},
+            },
+            {
+                "code": "HIP_HIGH",
+                "message_key": "error.exercise.hip_high",
+                "severity": "warning",
+                "metadata": {"hip_body_angle": 142.0},
             },
         ]
         for entry in mock_errors_v2:

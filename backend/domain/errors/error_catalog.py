@@ -35,6 +35,10 @@ KNOWN_ERRORS: Final[dict[str, ErrorSpec]] = {
         "severity": "warning",
         "message_key": "error.exercise.hip_sagging",
     },
+    "HIP_HIGH": {
+        "severity": "warning",
+        "message_key": "error.exercise.hip_high",
+    },
     "UNKNOWN_ERROR": {
         "severity": "warning",
         "message_key": "error.generic.unknown",
