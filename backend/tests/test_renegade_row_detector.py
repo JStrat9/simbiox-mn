@@ -9,6 +9,10 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from detectors.renegade_row_detector import RenegadeRowDetector
+from config import (
+    RENEGADE_ROW_ELBOW_TOP_MIN,
+    RENEGADE_ROW_ELBOW_TOP_MAX,
+)
 from domain.errors.error_catalog import KNOWN_ERRORS
 from domain.errors.error_normalizer import build_errors_v2_from_codes
 from domain.session.session_state import SessionState
@@ -116,6 +120,7 @@ class RenegadeRowDetectorTests(unittest.TestCase):
     def test_errors_v2_metadata_contains_causal_angle(self):
         causal_angle_by_code = {
             "RANGE_INSUFFICIENT": "elbow_angle",
+            "ELBOW_OVERFLEXION": "elbow_angle",
             "HIP_SAGGING": "hip_body_angle",
             "HIP_HIGH": "hip_body_angle",
         }
@@ -125,6 +130,12 @@ class RenegadeRowDetectorTests(unittest.TestCase):
                 "message_key": "error.exercise.range_insufficient",
                 "severity": "warning",
                 "metadata": {"elbow_angle": 110.5},
+            },
+            {
+                "code": "ELBOW_OVERFLEXION",
+                "message_key": "error.exercise.elbow_overflexion",
+                "severity": "warning",
+                "metadata": {"elbow_angle": 65.0},
             },
             {
                 "code": "HIP_SAGGING",
@@ -148,6 +159,19 @@ class RenegadeRowDetectorTests(unittest.TestCase):
                 f"Error {code!r} missing causal angle {expected_key!r} in metadata",
             )
             self.assertIsInstance(entry["metadata"][expected_key], float)
+
+    def test_confirmed_errors_survive_low_confidence_frame(self):
+        d = RenegadeRowDetector()
+        d.confirmed_error_dicts["HIP_SAGGING"] = {
+            "code": "HIP_SAGGING",
+            "message_key": "error.exercise.hip_sagging",
+            "severity": "warning",
+            "metadata": {"hip_body_angle": 160.2},
+        }
+        low_conf_kp = np.zeros((17, 3))
+        r = d.analyze(low_conf_kp)
+        self.assertEqual([e["code"] for e in r["errors_v2"]], ["HIP_SAGGING"])
+        self.assertEqual(r["errors"], ["HIP_SAGGING"])
 
     def test_rep_counting_increments_on_full_cycle(self):
         d = RenegadeRowDetector()
@@ -205,8 +229,61 @@ class RenegadeRowDetectorTests(unittest.TestCase):
             self.assertIn("metadata", entry)
 
 
+class RenegadeRowElbowTopRangeTests(unittest.TestCase):
+    def _run_rep_with_top_angle(self, detector, top_angle_deg: float):
+        kp_arm_down = _kp_with_elbow_angle(160)
+        kp_mid = _kp_with_elbow_angle(115)
+        kp_top = _kp_with_elbow_angle(top_angle_deg)
+
+        outputs = []
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid))       # down -> pulling
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_top))       # top attempt
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid))       # lowering or still pulling
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_arm_down))  # closes attempt
+        return outputs
+
+    def test_range_insufficient_confirmed_when_peak_above_target(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_top_angle(d, 100)  # rep 1
+        outputs = self._run_rep_with_top_angle(d, 100)  # rep 2
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertGreaterEqual(len(confirmed), 1)
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("RANGE_INSUFFICIENT", codes)
+        self.assertNotIn("ELBOW_OVERFLEXION", codes)
+
+    def test_elbow_overflexion_confirmed_when_peak_below_target(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_top_angle(d, 65)  # rep 1
+        outputs = self._run_rep_with_top_angle(d, 65)  # rep 2
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertGreaterEqual(len(confirmed), 1)
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("ELBOW_OVERFLEXION", codes)
+        self.assertNotIn("RANGE_INSUFFICIENT", codes)
+
+    def test_boundaries_70_and_90_do_not_emit_elbow_errors(self):
+        for top_angle in (RENEGADE_ROW_ELBOW_TOP_MIN, RENEGADE_ROW_ELBOW_TOP_MAX):
+            d = RenegadeRowDetector()
+            outputs_1 = self._run_rep_with_top_angle(d, top_angle)
+            outputs_2 = self._run_rep_with_top_angle(d, top_angle)
+            for r in outputs_1 + outputs_2:
+                codes = [e["code"] for e in r.get("errors_v2", [])]
+                self.assertNotIn("RANGE_INSUFFICIENT", codes)
+                self.assertNotIn("ELBOW_OVERFLEXION", codes)
+
+    def test_90_degrees_counts_as_repetition_top(self):
+        d = RenegadeRowDetector()
+        outputs = self._run_rep_with_top_angle(d, RENEGADE_ROW_ELBOW_TOP_MAX)
+        self.assertEqual(outputs[-1]["reps"], 1)
+
+
 class RenegadeRowCrossRepThresholdTests(unittest.TestCase):
-    """errors_v2 sólo debe emitirse cuando el mismo error aparece en >= 2 reps."""
+    """errors_v2 se confirma en >=2 reps y luego se mantiene acumulado."""
 
     def _run_rep_with_hip_sagging(self, detector):
         """Simula un rep completo con HIP_SAGGING (hip_body_angle > 150).
@@ -248,21 +325,18 @@ class RenegadeRowCrossRepThresholdTests(unittest.TestCase):
         self._run_rep_with_hip_sagging(d)  # rep 1
         outputs = self._run_rep_with_hip_sagging(d)  # rep 2 — debe confirmar
         confirmed = [r for r in outputs if r.get("errors_v2")]
-        self.assertEqual(len(confirmed), 1, "errors_v2 debe emitirse exactamente una vez al confirmar")
+        self.assertGreaterEqual(len(confirmed), 1)
         codes = [e["code"] for e in confirmed[0]["errors_v2"]]
         self.assertIn("HIP_SAGGING", codes)
 
-    def test_hip_sagging_does_not_fire_again_on_third_rep(self):
+    def test_hip_sagging_remains_present_on_third_rep(self):
         d = RenegadeRowDetector()
         self._run_rep_with_hip_sagging(d)  # rep 1
         self._run_rep_with_hip_sagging(d)  # rep 2 — confirma
         outputs = self._run_rep_with_hip_sagging(d)  # rep 3
         for r in outputs:
-            self.assertEqual(
-                r.get("errors_v2", []),
-                [],
-                "errors_v2 no debe re-emitirse en reps posteriores a la confirmación",
-            )
+            codes = [e["code"] for e in r.get("errors_v2", [])]
+            self.assertIn("HIP_SAGGING", codes)
 
 
 if __name__ == "__main__":
