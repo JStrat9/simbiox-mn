@@ -36,7 +36,22 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
         websocket_server.register_rotate_station_handler(
             lambda session_person_id, station_id: None
         )
+        websocket_server.register_clear_reviewed_errors_handler(
+            lambda session_person_id: None
+        )
         state = SessionState()
+        state.set_errors_v2(
+            "athlete_1",
+            [
+                {
+                    "code": "BACK_ROUNDED",
+                    "message_key": "error.squat.back_rounded",
+                    "severity": "warning",
+                    "metadata": {"hip_angle": 40.0},
+                }
+            ],
+            increment_version=False,
+        )
         websocket_server.register_session_state(state)
 
     async def test_initial_connection_sends_only_session_update(self):
@@ -65,6 +80,21 @@ class WebSocketPhase2ContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first["type"], "SESSION_UPDATE")
         self.assertEqual(second["type"], "SESSION_UPDATE")
         self.assertGreater(second["version"], first["version"])
+
+    async def test_clear_reviewed_errors_broadcasts_session_update_with_empty_errors(self):
+        clear_msg = json.dumps({"type": "CLEAR_REVIEWED_ERRORS"})
+        ws = FakeWebSocket(incoming_messages=[clear_msg])
+
+        await websocket_server.handler(ws)
+
+        self.assertEqual(len(ws.sent_payloads), 2)
+        first, second = ws.sent_payloads
+        self.assertEqual(first["type"], "SESSION_UPDATE")
+        self.assertEqual(second["type"], "SESSION_UPDATE")
+        self.assertGreaterEqual(second["version"], first["version"])
+        for athlete_data in second["athletes"].values():
+            self.assertEqual(athlete_data["errors"], [])
+            self.assertEqual(athlete_data["errors_v2"], [])
 
     async def test_transport_uses_public_athlete_identity(self):
         ws = FakeWebSocket(incoming_messages=[])

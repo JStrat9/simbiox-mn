@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from "react";
 import { useClientsStore } from "@/store/clients";
-import type { WSMessage } from "@/lib/wsTypes";
+import type { WSMessage, WSOutgoingMessage } from "@/lib/wsTypes";
 
 export function useWebSocket() {
     const replaceFromSessionUpdate = useClientsStore(
@@ -11,7 +11,7 @@ export function useWebSocket() {
     );
     const socketRef = useRef<WebSocket | null>(null);
 
-    const send = (data: unknown) => {
+    const send = (data: WSOutgoingMessage) => {
         if (
             socketRef.current &&
             socketRef.current.readyState === WebSocket.OPEN

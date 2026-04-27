@@ -90,35 +90,8 @@ export const useClientsStore = create<ClientsStore>((set) => ({
                 ClientState
             >;
 
-            const mergedClients: Record<string, ClientState> = {};
-
-            for (const [id, fresh] of Object.entries(freshClients)) {
-                const existing = state.clients[id];
-
-                if (!existing) {
-                    mergedClients[id] = fresh;
-                    continue;
-                }
-
-                // Accumulate errors by code: same code → one entry, new code → added.
-                // Fresh message overwrites existing so exercise-prefix stays current.
-                const errorMap = new Map<string, string>();
-                for (let i = 0; i < existing.currentErrorCodes.length; i++) {
-                    errorMap.set(existing.currentErrorCodes[i], existing.currentErrors[i]);
-                }
-                for (let i = 0; i < fresh.currentErrorCodes.length; i++) {
-                    errorMap.set(fresh.currentErrorCodes[i], fresh.currentErrors[i]);
-                }
-
-                mergedClients[id] = {
-                    ...fresh,
-                    currentErrorCodes: [...errorMap.keys()],
-                    currentErrors: [...errorMap.values()],
-                };
-            }
-
             return {
-                clients: mergedClients,
+                clients: freshClients,
                 stations: buildStationsFromSessionUpdate(snapshot) as SessionStations,
                 sessionHydrated: true,
                 lastSessionVersion: snapshot.version,

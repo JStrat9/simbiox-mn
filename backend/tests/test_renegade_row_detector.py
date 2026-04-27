@@ -9,6 +9,10 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from detectors.renegade_row_detector import RenegadeRowDetector
+from config import (
+    RENEGADE_ROW_ELBOW_TOP_MIN,
+    RENEGADE_ROW_ELBOW_TOP_MAX,
+)
 from domain.errors.error_catalog import KNOWN_ERRORS
 from domain.errors.error_normalizer import build_errors_v2_from_codes
 from domain.session.session_state import SessionState
@@ -34,7 +38,7 @@ def _kp_with_elbow_angle(elbow_angle_deg: float) -> np.ndarray:
     Geometry: shoulder=(0.2, 0.5), elbow=(0.5, 0.5).
     Wrist is placed by rotating the vector elbow→shoulder by elbow_angle_deg,
     which produces that exact angle at the elbow via angle_from_arrays.
-    Hip (0.7, 0.5) and ankle (0.9, 0.5) are collinear → hip_body_angle=180° (no HIP_SAGGING).
+    Hip (0.7, 0.585) and ankle (0.9, 0.5) → hip_body_angle≈147° (zona neutra, no dispara HIP_SAGGING ni HIP_HIGH).
     """
     import math
 
@@ -64,9 +68,9 @@ def _kp_with_elbow_angle(elbow_angle_deg: float) -> np.ndarray:
     kp[6]  = [shoulder_y, shoulder_x, 0.9]  # right_shoulder
     kp[8]  = [elbow_y,    elbow_x,    0.9]  # right_elbow
     kp[10] = [wrist_y,    wrist_x,    0.9]  # right_wrist
-    kp[12] = [0.7, 0.5, 0.9]               # right_hip
-    kp[14] = [0.8, 0.5, 0.9]               # right_knee (boosts right score)
-    kp[16] = [0.9, 0.5, 0.9]               # right_ankle
+    kp[12] = [0.7, 0.585, 0.9]             # right_hip — ángulo neutro ~147° (entre HIP_HIGH<145 y HIP_SAGGING>150)
+    kp[14] = [0.8, 0.5,   0.9]             # right_knee (boosts right score)
+    kp[16] = [0.9, 0.5,   0.9]             # right_ankle
 
     return kp
 
@@ -116,7 +120,9 @@ class RenegadeRowDetectorTests(unittest.TestCase):
     def test_errors_v2_metadata_contains_causal_angle(self):
         causal_angle_by_code = {
             "RANGE_INSUFFICIENT": "elbow_angle",
+            "ELBOW_OVERFLEXION": "elbow_angle",
             "HIP_SAGGING": "hip_body_angle",
+            "HIP_HIGH": "hip_body_angle",
         }
         mock_errors_v2 = [
             {
@@ -126,10 +132,22 @@ class RenegadeRowDetectorTests(unittest.TestCase):
                 "metadata": {"elbow_angle": 110.5},
             },
             {
+                "code": "ELBOW_OVERFLEXION",
+                "message_key": "error.exercise.elbow_overflexion",
+                "severity": "warning",
+                "metadata": {"elbow_angle": 65.0},
+            },
+            {
                 "code": "HIP_SAGGING",
                 "message_key": "error.exercise.hip_sagging",
                 "severity": "warning",
-                "metadata": {"hip_body_angle": 130.2},
+                "metadata": {"hip_body_angle": 160.2},
+            },
+            {
+                "code": "HIP_HIGH",
+                "message_key": "error.exercise.hip_high",
+                "severity": "warning",
+                "metadata": {"hip_body_angle": 142.0},
             },
         ]
         for entry in mock_errors_v2:
@@ -141,6 +159,19 @@ class RenegadeRowDetectorTests(unittest.TestCase):
                 f"Error {code!r} missing causal angle {expected_key!r} in metadata",
             )
             self.assertIsInstance(entry["metadata"][expected_key], float)
+
+    def test_confirmed_errors_survive_low_confidence_frame(self):
+        d = RenegadeRowDetector()
+        d.confirmed_error_dicts["HIP_SAGGING"] = {
+            "code": "HIP_SAGGING",
+            "message_key": "error.exercise.hip_sagging",
+            "severity": "warning",
+            "metadata": {"hip_body_angle": 160.2},
+        }
+        low_conf_kp = np.zeros((17, 3))
+        r = d.analyze(low_conf_kp)
+        self.assertEqual([e["code"] for e in r["errors_v2"]], ["HIP_SAGGING"])
+        self.assertEqual(r["errors"], ["HIP_SAGGING"])
 
     def test_rep_counting_increments_on_full_cycle(self):
         d = RenegadeRowDetector()
@@ -196,6 +227,116 @@ class RenegadeRowDetectorTests(unittest.TestCase):
             self.assertIn("message_key", entry)
             self.assertIn("severity", entry)
             self.assertIn("metadata", entry)
+
+
+class RenegadeRowElbowTopRangeTests(unittest.TestCase):
+    def _run_rep_with_top_angle(self, detector, top_angle_deg: float):
+        kp_arm_down = _kp_with_elbow_angle(160)
+        kp_mid = _kp_with_elbow_angle(115)
+        kp_top = _kp_with_elbow_angle(top_angle_deg)
+
+        outputs = []
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid))       # down -> pulling
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_top))       # top attempt
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid))       # lowering or still pulling
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_arm_down))  # closes attempt
+        return outputs
+
+    def test_range_insufficient_confirmed_when_peak_above_target(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_top_angle(d, 100)  # rep 1
+        outputs = self._run_rep_with_top_angle(d, 100)  # rep 2
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertGreaterEqual(len(confirmed), 1)
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("RANGE_INSUFFICIENT", codes)
+        self.assertNotIn("ELBOW_OVERFLEXION", codes)
+
+    def test_elbow_overflexion_confirmed_when_peak_below_target(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_top_angle(d, 65)  # rep 1
+        outputs = self._run_rep_with_top_angle(d, 65)  # rep 2
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertGreaterEqual(len(confirmed), 1)
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("ELBOW_OVERFLEXION", codes)
+        self.assertNotIn("RANGE_INSUFFICIENT", codes)
+
+    def test_boundaries_70_and_90_do_not_emit_elbow_errors(self):
+        for top_angle in (RENEGADE_ROW_ELBOW_TOP_MIN, RENEGADE_ROW_ELBOW_TOP_MAX):
+            d = RenegadeRowDetector()
+            outputs_1 = self._run_rep_with_top_angle(d, top_angle)
+            outputs_2 = self._run_rep_with_top_angle(d, top_angle)
+            for r in outputs_1 + outputs_2:
+                codes = [e["code"] for e in r.get("errors_v2", [])]
+                self.assertNotIn("RANGE_INSUFFICIENT", codes)
+                self.assertNotIn("ELBOW_OVERFLEXION", codes)
+
+    def test_90_degrees_counts_as_repetition_top(self):
+        d = RenegadeRowDetector()
+        outputs = self._run_rep_with_top_angle(d, RENEGADE_ROW_ELBOW_TOP_MAX)
+        self.assertEqual(outputs[-1]["reps"], 1)
+
+
+class RenegadeRowCrossRepThresholdTests(unittest.TestCase):
+    """errors_v2 se confirma en >=2 reps y luego se mantiene acumulado."""
+
+    def _run_rep_with_hip_sagging(self, detector):
+        """Simula un rep completo con HIP_SAGGING (hip_body_angle > 150).
+        hip=(0.7, 0.5) colínea con shoulder=(0.2,0.5) y ankle=(0.9,0.5) → ángulo=180°.
+        Devuelve todos los outputs del rep."""
+
+        def _kp(elbow_angle_deg):
+            kp = _kp_with_elbow_angle(elbow_angle_deg).copy()
+            kp[12] = [0.7, 0.5, 0.9]  # right_hip — x=0.5 colínea → hip_body_angle=180°
+            return kp
+
+        kp_mid_sag  = _kp(115)  # pulling, HIP_SAGGING activo
+        kp_up_sag   = _kp(75)   # up, HIP_SAGGING activo
+        kp_arm_down = _kp_with_elbow_angle(160)  # brazo abajo, cadera neutra
+
+        outputs = []
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid_sag))   # pulling con error
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_up_sag))    # up con error
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid_sag))   # lowering con error
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_arm_down))  # down → rep completo
+        return outputs
+
+    def test_hip_sagging_not_emitted_after_first_rep(self):
+        d = RenegadeRowDetector()
+        outputs = self._run_rep_with_hip_sagging(d)
+        for r in outputs:
+            self.assertEqual(
+                r.get("errors_v2", []),
+                [],
+                "errors_v2 debe estar vacío durante el primer rep con HIP_SAGGING",
+            )
+
+    def test_hip_sagging_fires_once_on_second_rep(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_hip_sagging(d)  # rep 1
+        outputs = self._run_rep_with_hip_sagging(d)  # rep 2 — debe confirmar
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertGreaterEqual(len(confirmed), 1)
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("HIP_SAGGING", codes)
+
+    def test_hip_sagging_remains_present_on_third_rep(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_hip_sagging(d)  # rep 1
+        self._run_rep_with_hip_sagging(d)  # rep 2 — confirma
+        outputs = self._run_rep_with_hip_sagging(d)  # rep 3
+        for r in outputs:
+            codes = [e["code"] for e in r.get("errors_v2", [])]
+            self.assertIn("HIP_SAGGING", codes)
 
 
 if __name__ == "__main__":

@@ -37,6 +37,7 @@ class RotationRuntimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         websocket_server.connected_clients.clear()
         websocket_server.register_rotate_station_handler(None)
+        websocket_server.register_clear_reviewed_errors_handler(None)
         self.state = SessionState()
         websocket_server.register_session_state(self.state)
 
@@ -82,6 +83,34 @@ class RotationRuntimeIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.state.version, 1)
         self.assertEqual(after_station_runtime, "station2")
         self.assertEqual(after_station_state, "station2")
+
+    async def test_clear_reviewed_errors_calls_runtime_handler_for_each_assignment(self):
+        calls: list[str] = []
+
+        def clear_handler(session_person_id: str):
+            calls.append(session_person_id)
+
+        self.state.set_errors_v2(
+            "athlete_1",
+            [
+                {
+                    "code": "BACK_ROUNDED",
+                    "message_key": "error.squat.back_rounded",
+                    "severity": "warning",
+                    "metadata": {"hip_angle": 40.0},
+                }
+            ],
+            increment_version=False,
+        )
+
+        websocket_server.register_clear_reviewed_errors_handler(clear_handler)
+
+        ws = FakeWebSocket([json.dumps({"type": "CLEAR_REVIEWED_ERRORS"})])
+        await websocket_server.handler(ws)
+
+        self.assertEqual(len(ws.sent_payloads), 2)
+        self.assertEqual(len(calls), len(self.state.assignments))
+        self.assertEqual(set(calls), set(self.state.assignments.keys()))
 
 
 if __name__ == "__main__":

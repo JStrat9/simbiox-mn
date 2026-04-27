@@ -4,7 +4,9 @@ const ERROR_MESSAGE_BY_KEY = {
     "error.squat.back_rounded": "Espalda curvada",
     "error.squat.knee_forward": "Rodillas adelantadas",
     "error.exercise.range_insufficient": "Tirón corto",
-    "error.exercise.hip_sagging": "Cadera flexionada",
+    "error.exercise.elbow_overflexion": "Flexionas demasiado el codo",
+    "error.exercise.hip_sagging": "Cadera hundida",
+    "error.exercise.hip_high": "Cadera alta",
     "error.generic.unknown": "Error desconocido",
 };
 
@@ -14,7 +16,9 @@ const ERROR_MESSAGE_BY_CODE = {
     BACK_ROUNDED: "Espalda curvada",
     KNEE_FORWARD: "Rodillas adelantadas",
     RANGE_INSUFFICIENT: "Tirón corto",
-    HIP_SAGGING: "Cadera flexionada",
+    ELBOW_OVERFLEXION: "Flexionas demasiado el codo",
+    HIP_SAGGING: "Cadera hundida",
+    HIP_HIGH: "Cadera alta",
     UNKNOWN_ERROR: "Error desconocido",
 };
 

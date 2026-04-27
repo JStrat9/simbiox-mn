@@ -6,12 +6,14 @@ from queue import Queue
 
 from communication.websocket_server import (
     emit_session_update,
+    register_clear_reviewed_errors_handler,
     start_server,
     register_rotate_station_handler,
     register_session_state,
 )
 from application.ports.session_person_manager_ports import RuntimeSessionManagerPort
 from config import MAX_PERSONS, CAMERA_SIDE_URL, CAMERA_FRONT_URL
+from detectors.exercise_detector_router import ExerciseDetectorRouter
 from domain.session.session_state import SessionState
 from interfaces.runtime.session_person_manager_adapter import (
     build_legacy_session_person_manager_adapter,
@@ -29,6 +31,7 @@ session_manager: RuntimeSessionManagerPort = build_legacy_session_person_manager
     t_lost=2.0,
     distance_threshold=120.0,
 )
+detector_manager = ExerciseDetectorRouter(max_clients=MAX_PERSONS)
 register_session_state(session_state)
 
 
@@ -43,6 +46,13 @@ def on_rotate_station(session_person_id: str, station_id: str):
 
 
 register_rotate_station_handler(on_rotate_station)
+
+
+def on_clear_reviewed_errors(session_person_id: str):
+    detector_manager.clear_reviewed_errors(session_person_id)
+
+
+register_clear_reviewed_errors_handler(on_clear_reviewed_errors)
 
 
 class WebSocketSessionUpdatePublisher:
@@ -70,6 +80,7 @@ def main():
     run_app_runtime(
         session_state=session_state,
         session_manager=session_manager,
+        detector_manager=detector_manager,
         frame_presenter=OpenCVFramePresenter(window_name="Side Camera"),
         front_frame_presenter=front_presenter,
         runtime_control=OpenCVKeypressControl(quit_key="q", wait_ms=1),

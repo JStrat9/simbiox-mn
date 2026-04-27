@@ -26,6 +26,56 @@ def _fake_person_kp() -> np.ndarray:
     return kp
 
 
+def _kp_squat(knee_angle_deg: float, hip_angle_deg: float = 80.0) -> np.ndarray:
+    """
+    Build right-side keypoints that produce the requested knee angle at the knee
+    and the requested hip angle (shoulder-hip-knee). Left side has zero confidence
+    so choose_side() always picks right.
+
+    Layout (y increases downward, x fixed at 0.5):
+      shoulder y=0.2, hip y=0.5, knee at angle from hip, ankle below knee.
+    """
+    import math
+
+    kp = np.zeros((17, 3))
+
+    # Fix shoulder and hip on the right side
+    sh_y, sh_x = 0.2, 0.5
+    hi_y, hi_x = 0.5, 0.5
+
+    # Place knee so that hip_angle (shoulder-hip-knee) = hip_angle_deg.
+    # Vector hip→shoulder makes angle w.r.t. y-axis; rotate by hip_angle to get hip→knee.
+    hi_sh_y = sh_y - hi_y  # -0.3
+    hi_sh_x = sh_x - hi_x  # 0.0
+    hi_sh_len = math.hypot(hi_sh_y, hi_sh_x)
+    hip_rad = math.radians(hip_angle_deg)
+    hi_kn_y = hi_sh_y * math.cos(hip_rad) - hi_sh_x * math.sin(hip_rad)
+    hi_kn_x = hi_sh_y * math.sin(hip_rad) + hi_sh_x * math.cos(hip_rad)
+    hi_kn_len = math.hypot(hi_kn_y, hi_kn_x)
+    # normalize and scale to same length as hip→shoulder
+    kn_y = hi_y + (hi_kn_y / hi_kn_len) * hi_sh_len
+    kn_x = hi_x + (hi_kn_x / hi_kn_len) * hi_sh_len
+
+    # Place ankle so that knee_angle (hip-knee-ankle) = knee_angle_deg.
+    kn_hi_y = hi_y - kn_y
+    kn_hi_x = hi_x - kn_x
+    kn_hi_len = math.hypot(kn_hi_y, kn_hi_x)
+    knee_rad = math.radians(knee_angle_deg)
+    kn_an_y = kn_hi_y * math.cos(knee_rad) - kn_hi_x * math.sin(knee_rad)
+    kn_an_x = kn_hi_y * math.sin(knee_rad) + kn_hi_x * math.cos(knee_rad)
+    kn_an_len = math.hypot(kn_an_y, kn_an_x)
+    an_y = kn_y + (kn_an_y / kn_an_len) * kn_hi_len
+    an_x = kn_x + (kn_an_x / kn_an_len) * kn_hi_len
+
+    conf = 0.9
+    kp[6]  = [sh_y, sh_x, conf]  # right_shoulder
+    kp[12] = [hi_y, hi_x, conf]  # right_hip
+    kp[14] = [kn_y, kn_x, conf]  # right_knee
+    kp[16] = [an_y, an_x, conf]  # right_ankle
+
+    return kp
+
+
 class SquatDetectorStructuredOutputTests(unittest.TestCase):
 
     def test_analyze_always_returns_errors_v2_key(self):
@@ -110,6 +160,19 @@ class SquatDetectorStructuredOutputTests(unittest.TestCase):
             )
             self.assertIsInstance(entry["metadata"][expected_key], float)
 
+    def test_confirmed_errors_survive_low_confidence_frame(self):
+        d = SquatDetector()
+        d.confirmed_error_dicts["BACK_ROUNDED"] = {
+            "code": "BACK_ROUNDED",
+            "message_key": "error.squat.back_rounded",
+            "severity": "warning",
+            "metadata": {"hip_angle": 45.5},
+        }
+        low_conf_kp = np.zeros((17, 3))
+        r = d.analyze(low_conf_kp)
+        self.assertEqual([e["code"] for e in r["errors_v2"]], ["BACK_ROUNDED"])
+        self.assertEqual(r["errors"], ["BACK_ROUNDED"])
+
     def test_detector_errors_never_contain_spanish_text(self):
         spanish_texts = {
             "no bajas lo suficiente",
@@ -191,6 +254,62 @@ class SquatDetectorStructuredOutputTests(unittest.TestCase):
             self.assertIn("message_key", entry)
             self.assertIn("severity", entry)
             self.assertIn("metadata", entry)
+
+
+class SquatDetectorCrossRepThresholdTests(unittest.TestCase):
+    """errors_v2 se confirma en >=2 reps y luego se mantiene acumulado."""
+
+    def _run_squat_rep_with_back_rounded(self, detector):
+        """Simula un rep completo con BACK_ROUNDED (hip_angle=40 < LEAN_THRESHOLD=60).
+        Devuelve todos los outputs del rep."""
+        # Keypoints: zona de bajada con espalda curvada (hip_angle=40)
+        kp_down_error = _kp_squat(knee_angle_deg=60, hip_angle_deg=40)
+        # Zona de pie (knee>120 → in_up_zone), sin error
+        kp_up = _kp_squat(knee_angle_deg=150, hip_angle_deg=80)
+        # Zona intermedia (90 < knee <= 120)
+        kp_mid = _kp_squat(knee_angle_deg=100, hip_angle_deg=80)
+
+        outputs = []
+        # up → descending
+        outputs.append(detector.analyze(kp_mid))
+        # descending → down (knee=60 dentro de PERFECT_DEPTH_MIN..MAX por defecto 50-69)
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_down_error))
+        # down → ascending
+        outputs.append(detector.analyze(kp_mid))
+        # ascending → up
+        outputs.append(detector.analyze(kp_up))
+        return outputs
+
+    def test_error_not_emitted_after_first_rep(self):
+        d = SquatDetector()
+        outputs = self._run_squat_rep_with_back_rounded(d)
+        for r in outputs:
+            self.assertEqual(
+                r.get("errors_v2", []),
+                [],
+                "errors_v2 debe estar vacío durante el primer rep con error",
+            )
+
+    def test_error_fires_once_on_second_rep(self):
+        d = SquatDetector()
+        # Rep 1 — sin confirmación
+        self._run_squat_rep_with_back_rounded(d)
+        # Rep 2 — debe confirmar
+        outputs = self._run_squat_rep_with_back_rounded(d)
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertGreaterEqual(len(confirmed), 1)
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("BACK_ROUNDED", codes)
+
+    def test_error_remains_present_on_third_rep(self):
+        d = SquatDetector()
+        self._run_squat_rep_with_back_rounded(d)  # rep 1
+        self._run_squat_rep_with_back_rounded(d)  # rep 2 — confirma
+        outputs = self._run_squat_rep_with_back_rounded(d)  # rep 3
+        for r in outputs:
+            codes = [e["code"] for e in r.get("errors_v2", [])]
+            self.assertIn("BACK_ROUNDED", codes)
 
 
 if __name__ == "__main__":
