@@ -14,6 +14,7 @@ from config import (
     RENEGADE_ROW_HIP_SAG_THRESHOLD,
     RENEGADE_ROW_HIP_HIGH_THRESHOLD,
     ERROR_REPEAT_THRESHOLD,
+    ERROR_REP_COUNT_THRESHOLD,
     KEYPOINT_CONFIDENCE_THRESHOLD,
 )
 from domain.errors.error_catalog import (
@@ -50,6 +51,8 @@ class RenegadeRowDetector:
         self.completed_pull = False
         self.first_rep_done = False
         self.current_rep_errors = {}
+        self.current_rep_error_dicts: dict[str, dict] = {}
+        self.error_rep_count: dict[str, int] = {}
         self.renegade_row_errors_sent = set()
         self.last_valid_elbow_angle = 150
         self.aborted_pull = False
@@ -116,6 +119,7 @@ class RenegadeRowDetector:
         # Errors initialization
         # -----------------------
         current_errors_v2: list[dict] = []
+        newly_confirmed_errors: list[dict] = []
         rep_feedback: list[str] = []
 
         # -----------------------
@@ -133,17 +137,30 @@ class RenegadeRowDetector:
             elif in_down_zone:
                 self.state = "down"
                 if self.aborted_pull:
-                    current_errors_v2.append(_make_error("RANGE_INSUFFICIENT", elbow_angle=elbow_angle))
+                    err = _make_error("RANGE_INSUFFICIENT", elbow_angle=elbow_angle)
+                    current_errors_v2.append(err)
+                    self.error_rep_count["RANGE_INSUFFICIENT"] = (
+                        self.error_rep_count.get("RANGE_INSUFFICIENT", 0) + 1
+                    )
+                    if self.error_rep_count["RANGE_INSUFFICIENT"] == ERROR_REP_COUNT_THRESHOLD:
+                        newly_confirmed_errors.append(err)
                 self.aborted_pull = False
         elif self.state == "up" and in_mid_zone:
             self.state = "lowering"
         elif self.state == "lowering" and in_down_zone:
             self.state = "down"
             rep_feedback = [
-                err for err, frames in self.current_rep_errors.items()
+                code for code, frames in self.current_rep_errors.items()
                 if frames >= ERROR_REPEAT_THRESHOLD
             ]
+            for code in rep_feedback:
+                self.error_rep_count[code] = self.error_rep_count.get(code, 0) + 1
+                if self.error_rep_count[code] == ERROR_REP_COUNT_THRESHOLD:
+                    err_dict = self.current_rep_error_dicts.get(code)
+                    if err_dict:
+                        newly_confirmed_errors.append(err_dict)
             self.current_rep_errors.clear()
+            self.current_rep_error_dicts.clear()
 
         # Hip position checks during active phases
         if self.state in ("pulling", "up", "lowering"):
@@ -158,6 +175,7 @@ class RenegadeRowDetector:
                 self.current_rep_errors[code] = (
                     self.current_rep_errors.get(code, 0) + 1
                 )
+                self.current_rep_error_dicts[code] = err
 
         # Filter repeated errors
         feedback_to_send = []
@@ -185,7 +203,7 @@ class RenegadeRowDetector:
                 "elbow": elbow_angle,
                 "hip_body": hip_body_angle,
             },
-            "errors": [e["code"] for e in current_errors_v2],
-            "errors_v2": current_errors_v2,
+            "errors": [e["code"] for e in newly_confirmed_errors],
+            "errors_v2": newly_confirmed_errors,
             "feedback": feedback_to_send,
         }

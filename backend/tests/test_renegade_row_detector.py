@@ -205,5 +205,65 @@ class RenegadeRowDetectorTests(unittest.TestCase):
             self.assertIn("metadata", entry)
 
 
+class RenegadeRowCrossRepThresholdTests(unittest.TestCase):
+    """errors_v2 sólo debe emitirse cuando el mismo error aparece en >= 2 reps."""
+
+    def _run_rep_with_hip_sagging(self, detector):
+        """Simula un rep completo con HIP_SAGGING (hip_body_angle > 150).
+        hip=(0.7, 0.5) colínea con shoulder=(0.2,0.5) y ankle=(0.9,0.5) → ángulo=180°.
+        Devuelve todos los outputs del rep."""
+
+        def _kp(elbow_angle_deg):
+            kp = _kp_with_elbow_angle(elbow_angle_deg).copy()
+            kp[12] = [0.7, 0.5, 0.9]  # right_hip — x=0.5 colínea → hip_body_angle=180°
+            return kp
+
+        kp_mid_sag  = _kp(115)  # pulling, HIP_SAGGING activo
+        kp_up_sag   = _kp(75)   # up, HIP_SAGGING activo
+        kp_arm_down = _kp_with_elbow_angle(160)  # brazo abajo, cadera neutra
+
+        outputs = []
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid_sag))   # pulling con error
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_up_sag))    # up con error
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_mid_sag))   # lowering con error
+        for _ in range(3):
+            outputs.append(detector.analyze(kp_arm_down))  # down → rep completo
+        return outputs
+
+    def test_hip_sagging_not_emitted_after_first_rep(self):
+        d = RenegadeRowDetector()
+        outputs = self._run_rep_with_hip_sagging(d)
+        for r in outputs:
+            self.assertEqual(
+                r.get("errors_v2", []),
+                [],
+                "errors_v2 debe estar vacío durante el primer rep con HIP_SAGGING",
+            )
+
+    def test_hip_sagging_fires_once_on_second_rep(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_hip_sagging(d)  # rep 1
+        outputs = self._run_rep_with_hip_sagging(d)  # rep 2 — debe confirmar
+        confirmed = [r for r in outputs if r.get("errors_v2")]
+        self.assertEqual(len(confirmed), 1, "errors_v2 debe emitirse exactamente una vez al confirmar")
+        codes = [e["code"] for e in confirmed[0]["errors_v2"]]
+        self.assertIn("HIP_SAGGING", codes)
+
+    def test_hip_sagging_does_not_fire_again_on_third_rep(self):
+        d = RenegadeRowDetector()
+        self._run_rep_with_hip_sagging(d)  # rep 1
+        self._run_rep_with_hip_sagging(d)  # rep 2 — confirma
+        outputs = self._run_rep_with_hip_sagging(d)  # rep 3
+        for r in outputs:
+            self.assertEqual(
+                r.get("errors_v2", []),
+                [],
+                "errors_v2 no debe re-emitirse en reps posteriores a la confirmación",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
