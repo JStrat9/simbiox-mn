@@ -1,7 +1,7 @@
 # SimbioX
 
 Sistema de entrenamiento asistido por visión artificial para sesiones en grupo,
-con detección de reps y errores técnicos en tiempo (casi) real.
+con detección de reps y errores técnicos en tiempo real.
 
 ## Objetivo
 
